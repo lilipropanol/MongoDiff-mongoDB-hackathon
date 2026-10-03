@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://vice-teddy-politics-held.trycloudflare.com/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
