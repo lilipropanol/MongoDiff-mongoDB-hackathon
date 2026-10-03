@@ -2,16 +2,31 @@
 
 These are checks completed on the starter, not proof that future branch changes or a real Atlas deployment work. Documentation-only edits do not change those results. Recheck affected behavior after implementation changes and run the combined checks after merging.
 
-## Checked
+## Current frontend checks
 
-- `pytest -q`: 5 passing focused checks.
-- `npm run build`: TypeScript check and Vite production build pass.
-- Browser smoke check in Chrome: fixture report shows 7 failures; reviewed repair reaches 0; reset restores 7.
-- All five dashboard tabs, fix confirmation, run history, and unconfigured Atlas error recovery work.
-- Axe checks report no violations for the five desktop views, confirmation dialog, and the run-history view at each checked responsive width. This is not an audit of every state or every view at every width.
-- No page overflow across all tabs at 375, 768, and 1280 pixels.
+The Atlas/LeafyGreen redesign passed `npm --prefix frontend run build` and `node frontend/scripts/smoke.mjs http://127.0.0.1:8002` against an isolated API with `MONGODB_URI=''`.
+
+- Atlas shell with one active Schema Guard tab; the other collection tabs are disabled context.
+- Actual fixture counts: 7 failures → reviewed repair → fresh verification at 0; reset restores 7.
+- One scan-result sentence replaces the status cards. The four-column LeafyGreen table has exactly three demo issue rows, with real counts 4/2/2; missing/null remain separate inside grouped inspection. No issue search or JSON forms on the main page. Collection filtering remains available.
+- Model changes, proposed validator, run history, and document details in supporting dialogs.
+- Dark and light desktop themes; theme preference survives reload.
+- The downloaded/displayed script matches every API-plan filter/update, checked by a dry execution against a recording database stub. Confirmation cancellation and the unconfigured Atlas error work.
+- Axe reports no violations in the checked desktop themes/dialogs, repair confirmation, repaired report, Atlas error, and dark workspace/model/validator/history states at 375, 768 and 1280px. The simplified summary and LeafyGreen table retain the approved Atlas palette and shell. This is not an audit of every possible state.
+- No page overflow at those widths, including the supporting dialogs; tables and code have their own keyboard-accessible scrolling.
 - No browser JavaScript errors during the checked flow.
-- CLI fixture analysis reports 12 documents, 7 failures, 5 newly affected documents, and 2 violations of the old stored schema.
+- Screenshots: `/tmp/schema-guard-atlas-dark.png`, `/tmp/schema-guard-atlas-light.png`, `/tmp/schema-guard-repaired.png`, `/tmp/schema-guard-mobile.png`.
+
+Python files were not changed in the frontend redesign. The earlier starter checks remain: five focused Python checks passed, and CLI fixture analysis reported 12 documents, 7 failures, 5 newly affected and 2 violations of the old schema. Re-run Python checks after backend branches are merged.
+
+## Frontend implementation limits
+
+- The main UI uses explicit demo presets reviewed through the script and confirmation. Custom repair decisions are API-only; an optional advanced dialog is future work.
+- Git/PR linkage and installed-validator comparison have no API fields yet. They are omitted from the main page. **View validator** shows only the generated validator candidate.
+- The tree shows only the configured collection, rather than discovering the cluster. Global navigation and other collection tabs are visual context.
+- Euclid fonts use MongoDB's referenced CDN; system fonts are the offline fallback.
+- LeafyGreen requires React 18-compatible component types here. `vite.config.ts` uses a browser-only Emotion server adapter to avoid Node stream imports; it does not replace LeafyGreen's CSS engine. SSR is not supported by that adapter.
+- Vite reports a large JavaScript chunk (about 1.30 MB, 372 KB gzipped). Dependency splitting/lazy loading is a later performance task; attempts must be checked for LeafyGreen dependency cycles.
 
 ## Repeat the checks
 

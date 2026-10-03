@@ -4,12 +4,14 @@
 
 **The starter is built; the full live Atlas workflow is not.** The dashboard, API, CLI, translated schemas, diff, fix plans, validator export, and local JSON history already exist. Build on these modules rather than recreating them. It is a feature prototype displayed in an Atlas-like shell, not an actual Atlas extension.
 
+The UI now uses the actual LeafyGreen kit in an Atlas collection shell: dark/light themes, one compact scan result, a four-column LeafyGreen table with three consolidated demo issue rows, document inspection, a script-only remediation panel, and model/validator/history dialogs. See [frontend plan](docs/FRONTEND_PLAN.md), [brand guidance](brand.md), and [current checks](docs/VALIDATION.md). This layout is built; the remaining UI work is an optional advanced decision dialog and new backend integration.
+
 The verified fixture demo works without credentials: 12 documents → 7 failures → reviewed defaults/mappings → 0 failures. Defaults plus integer-text conversion, without value mappings, leave 2 documents for review. Counts are calculated from fixture documents.
 
 | Remaining deliverable | Current gap | Owner |
 | --- | --- | --- |
 | Verified Atlas impact report | Live query path exists but has not been checked on real MongoDB/Atlas | Schema/impact |
-| Clear repair decision form | Current UI accepts defaults/mappings as JSON | You — UI |
+| Optional advanced decisions | Main UI uses reviewed demo presets; custom decisions are API-only | You — UI |
 | Reviewed live repair with backup, rescan and restore | Apply only changes in-memory fixtures; durable backup/restore does not exist | Fixes/backend |
 | Validator rollout | Only the command preview/export exists | Fixes/backend |
 | MongoDB-backed history | Reports currently live in local JSON files | Fixes/backend |
@@ -52,13 +54,13 @@ How the UI owner can try it:
 
 ### Finish first
 
-- [ ] Run the current demo and preserve the full scan → preview → confirm → rescan loop.
-- [ ] Replace the JSON decision editors with typed per-field controls generated from the report; retain an advanced JSON option.
+- [x] Preserve the full scan → preview → confirm → rescan loop in the Atlas/LeafyGreen layout.
+- [ ] If needed for live repairs, add an optional advanced decision dialog with typed per-field controls. Keep forms and raw JSON off the main demo view.
 - [ ] Show a reason's distinct bad values when the backend provides them; let the human explicitly map or leave each one unresolved.
-- [ ] Improve the model-change summary, issue sorting/filtering, and root-field nested issue presentation.
-- [ ] Show an explicit pre-apply/after-apply comparison and scan progress without fabricated percentages.
+- [ ] Improve nested issue details and sorting behind inspection; preserve the concise main table.
+- [x] Show the actual pre-apply/after-apply failure counts and an indeterminate scan state.
 - [ ] Coordinate a live-apply confirmation UI only after Person 3 delivers its backup/execute contract.
-- [ ] Recheck keyboard navigation, focus management, dialog cancellation, mobile layout, and error recovery after your UI changes. The starter's existing flow has already passed browser checks.
+- [x] Check the current layout, dialogs, collection filter, confirmation cancellation, error recovery and mobile overflow; repeat these checks after further UI changes.
 - [ ] After contributors push, merge their branches, resolve cross-component mismatches, and verify the full app and repeatable demo.
 
 ### Acceptance
@@ -67,7 +69,7 @@ Someone unfamiliar with the project can distinguish demo from Atlas data, explai
 
 ### Agent prompt
 
-> Own the React dashboard in frontend/ and final app integration. Read README, TEAM_HANDOFF.md, docs/API.md and brand.md. Preserve the existing API contract and working demo. Build typed repair decision controls, better issue inspection, and clear before/after state. Coordinate API contracts and shared types with the backend contributors. During parallel implementation, keep changes within UI ownership. After contributors push their branches, merge their work, resolve cross-component mismatches, and make the necessary integration changes across the app. Verify the combined Python checks, production build, and browser flow at mobile and desktop widths.
+> Own the React dashboard in frontend/ and final app integration. Read README, TEAM_HANDOFF.md, docs/API.md and brand.md. Preserve the existing API contract and working demo. Preserve the script-only main view. If live repair requires custom decisions, add a concise optional dialog, plus better issue inspection and clear before/after state. Coordinate API contracts and shared types with the backend contributors. During parallel implementation, keep changes within UI ownership. After contributors push their branches, merge their work, resolve cross-component mismatches, and make the necessary integration changes across the app. Verify the combined Python checks, production build, and browser flow at mobile and desktop widths.
 
 ## Person 2 — schema and impact tasks
 
@@ -128,8 +130,8 @@ A reviewed repair on a disposable collection first creates a complete backup, re
 
 | Elapsed time | UI (you) | Engine | Fixes/backend |
 | --- | --- | --- | --- |
-| First 20 min | Run demo; agree controls/contracts | Connect cluster; measure baseline report | Agree plan/execution contract; disposable collection |
-| Next 90 min | Typed decisions; issue details | Real-server query checks; nested reasons | Backup, execute, verify on disposable data |
+| First 20 min | Run concise demo; agree contracts | Connect cluster; measure baseline report | Agree plan/execution contract; disposable collection |
+| Next 90 min | Optional decisions; issue details | Real-server query checks; nested reasons | Backup, execute, verify on disposable data |
 | Next 60 min | Wire execution states | Default warnings; bad-value summaries | Restore, validator preservation; report persistence |
 | Next 40 min | After branches are pushed: merge, connect UI/backend, run combined checks and responsive/a11y pass | Push checked branch with handoff; help resolve engine issues | Push checked branch with handoff; help resolve backend issues |
 | Remaining time | Everyone: README, resettable demo, pitch rehearsal and submission |

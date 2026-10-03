@@ -1,6 +1,6 @@
 # MongoDB Atlas Schema Guard
 
-**Preview how a Pydantic model change affects documents already stored in MongoDB.** An Atlas-inspired collection dashboard with a shared Python engine and CLI. Independent feature prototype; it is not installed inside Atlas or endorsed by MongoDB.
+**Preview how a Pydantic model change affects documents already stored in MongoDB.** An Atlas collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. Independent feature prototype; it is not installed inside Atlas or endorsed by MongoDB.
 
 ## What works today
 
@@ -20,7 +20,7 @@
 
 ## What the three people finish
 
-- **You — UI:** typed repair controls, clearer before/after results, then merge everyone's pushed branches and verify the combined app.
+- **You — UI:** keep the demo concise, connect the reviewed live-repair contract when available, then merge everyone's pushed branches and verify the combined app.
 - **Schema/impact:** verify queries and actual counts on Atlas; improve nested explanations and missing-default warnings.
 - **Fixes/backend:** reviewed live execution with backup, verification and restore; then validator rollout and MongoDB history.
 
@@ -57,17 +57,25 @@ Open **http://127.0.0.1:8000**. API documentation: **http://127.0.0.1:8000/docs*
 
 For UI development, run `schema-guard-server` in one terminal and `cd frontend && npm run dev` in another. Open http://127.0.0.1:5173; Vite proxies `/api`, `/docs`, and `/openapi.json` to port 8000. If you change the API port, update those proxy targets in `frontend/vite.config.ts`, or use the built dashboard on the new API port. Restart the Python server after changing backend code, or use `.venv/bin/uvicorn schema_guard.server:app --reload --host 127.0.0.1 --port 8000`.
 
+## Frontend layout
+
+The dashboard recreates Atlas Data Explorer with **Schema Guard** as its active collection tab. It uses MongoDB's LeafyGreen components and Euclid Circular A typography. Dark mode uses the supplied palette; the header sun/moon control switches themes and remembers your choice.
+
+Only Schema Guard is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Model changes, document examples, validator preview and history open supporting dialogs.
+
+The main view shows one scan result, a LeafyGreen table with **Field / Issue / Documents / Details**, the generated operations, and **Apply Fix & Rescan**. Counts always come from reports. **View validator** opens the generated candidate; the API does not compare the installed validator or provide Git/PR linkage. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
+
 ## Try the complete demo
 
-1. The dashboard loads 12 synthetic movie documents and reports **7 failures**, including **5 newly affected** and **2 already violating the old stored schema**.
-2. Open issues to see their affected fields. Examples contain `_id` and the affected root field; a nested object example includes that object's contents.
-3. Open **Model changes** to compare the old and new Python model.
-4. Open **Fix preview**, select **Use demo decisions**, and review the supplied defaults and explicit mappings. These are illustrative human choices, not recommendations about real film ratings or runtimes.
-5. Select **Preview fix plan**, inspect the exact MongoDB operations, then **Apply to demo data** and confirm. A fresh analysis shows **0 failures**.
-6. Inspect **Run history**, export the report, and download the proposed validator.
-7. **Reset demo data** restores the initial fixtures and runs another scan.
+1. The dashboard loads 12 synthetic movies and reports **7 failures**. The header's **Demo** badge and data-source selector identify these as fixture results.
+2. The table summarizes three issue groups: **4** movies with missing/invalid ratings, **2** with string runtimes, and **2** with missing/null runtimes. A movie can appear under both rating and runtime issues; the headline remains the unique failing-document count.
+3. Select **Details** for examples. Missing and null remain separate in the detail dialog. The rating group includes both missing and invalid values.
+4. Review **Remediation pipeline**. It uses the existing example choices: defaults `rated="PG"`, `runtime=90`; mappings `PG13→PG-13`, `NR→PG`, and `N/A→90`. These are demo decisions, not recommendations for real movies.
+5. Select **Apply Fix & Rescan**, then confirm **Apply & Rescan**. The isolated fixture repair returns a fresh report with **0 failures**.
+6. **Run history** opens saved reports and the model-change view. **View validator**, report export, and script download remain available.
+7. **Reset demo data** restores the seed and scans again.
 
-To demonstrate leftovers, supply only `{"rated":"PG","runtime":90}` as defaults, leaving mappings empty. Applying that plan reduces failures to **2**; the conversion preserves `"N/A"`, and unrecognised ratings still need decisions.
+The streamlined dashboard has no JSON editors. Custom defaults/mappings remain supported by the plan API described in [docs/API.md](docs/API.md); an optional advanced decision dialog is future work. Atlas analysis and exported mechanical plans remain read-only, and the Apply button is disabled for Atlas.
 
 Demo documents and plans are isolated by browser session and kept in server memory. Saved report history is written to ignored `reports/`. After a server restart, run analysis to recreate the fixtures and generate a fresh plan. The temporary copy kept during demo apply is not a durable backup or a restore feature; **Reset demo data** loads the original seed. The fixture adapter does not verify MongoDB's BSON/query semantics.
 
