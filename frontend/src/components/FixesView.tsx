@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Button from "@leafygreen-ui/button";
 import Icon from "@leafygreen-ui/icon";
-import IconButton from "@leafygreen-ui/icon-button";
+import Modal from "@leafygreen-ui/modal";
 import { api } from "../api";
 import { demoDecisions, repairScript } from "../presentation";
 import type { Plan, Report } from "../types";
@@ -20,7 +20,7 @@ export function FixesView({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const dialog = useRef<HTMLDialogElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const activeRequest = useRef(0);
   async function loadPlan() {
     const revision = ++activeRequest.current;
@@ -54,7 +54,7 @@ export function FixesView({
     setBusy(true);
     onWorking?.(true);
     setError("");
-    dialog.current?.close();
+    setConfirmOpen(false);
     try {
       onApplied(await api.applyDemo(plan.id));
     } catch (err) {
@@ -70,7 +70,7 @@ export function FixesView({
         <div>
           <h2>
             <Icon aria-hidden glyph="Code" />
-            REMEDIATION PIPELINE
+            Repair plan
           </h2>
         </div>
       </div>
@@ -82,7 +82,7 @@ export function FixesView({
         ) : plan ? (
           <CodeBlock
             label="Generated MongoDB operations"
-            filename="schema_guard_fix.js"
+            filename="mongodiff_fix.js"
             code={repairScript(report, plan)}
           />
         ) : (
@@ -102,7 +102,6 @@ export function FixesView({
             <Button
               variant="primary"
               className="guard-primary"
-              size="small"
               leftGlyph={<Icon aria-hidden glyph="LightningBolt" />}
               disabled={
                 busy ||
@@ -110,7 +109,7 @@ export function FixesView({
                 !plan?.operations.length ||
                 report.source !== "demo"
               }
-              onClick={() => dialog.current?.showModal()}
+              onClick={() => setConfirmOpen(true)}
               title={
                 report.source === "atlas"
                   ? "Live repairs are not available"
@@ -122,31 +121,24 @@ export function FixesView({
           </div>
         </div>
       </div>
-      <dialog
-        ref={dialog}
-        className="confirm-dialog"
+      <Modal
+        open={confirmOpen}
+        setOpen={setConfirmOpen}
+        size="small"
+        className="repair-confirmation"
         aria-labelledby="confirm-title"
       >
-        <div className="dialog-heading">
-          <Icon aria-hidden glyph="Shield" size={24} />
-          <IconButton
-            aria-label="Close confirmation"
-            onClick={() => dialog.current?.close()}
-          >
-            <Icon aria-hidden glyph="X" />
-          </IconButton>
-        </div>
         <h2 id="confirm-title">Apply this fix?</h2>
         <p>
           Update this demo session using the displayed operations, then rescan.
         </p>
         <div className="dialog-actions">
-          <Button onClick={() => dialog.current?.close()}>Cancel</Button>
+          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
           <Button variant="primary" className="guard-primary" onClick={apply}>
             Apply & Rescan
           </Button>
         </div>
-      </dialog>
+      </Modal>
     </div>
   );
 }

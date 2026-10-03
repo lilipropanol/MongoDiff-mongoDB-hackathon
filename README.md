@@ -1,4 +1,4 @@
-# MongoDB Atlas Schema Guard
+# MongoDB Atlas mongoDiff
 
 **Preview how a Pydantic model change affects documents already stored in MongoDB.** An Atlas collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. Independent feature prototype; it is not installed inside Atlas or endorsed by MongoDB.
 
@@ -57,11 +57,13 @@ Open **http://127.0.0.1:8000**. API documentation: **http://127.0.0.1:8000/docs*
 
 For UI development, run `schema-guard-server` in one terminal and `cd frontend && npm run dev` in another. Open http://127.0.0.1:5173; Vite proxies `/api`, `/docs`, and `/openapi.json` to port 8000. If you change the API port, update those proxy targets in `frontend/vite.config.ts`, or use the built dashboard on the new API port. Restart the Python server after changing backend code, or use `.venv/bin/uvicorn schema_guard.server:app --reload --host 127.0.0.1 --port 8000`.
 
+The public feature name is **mongoDiff**. Existing commands (`schema-guard`, `schema-guard-server`) and the Python package (`schema_guard`) retain their starter identifiers.
+
 ## Frontend layout
 
-The dashboard recreates Atlas Data Explorer with **Schema Guard** as its active collection tab. It uses MongoDB's LeafyGreen components and Euclid Circular A typography. Dark mode uses the supplied palette; the header sun/moon control switches themes and remembers your choice.
+The dashboard recreates Atlas Data Explorer with **mongoDiff** as its active collection tab. It uses MongoDB's LeafyGreen components and Euclid Circular A typography. Light mode is the default, matching the Atlas reference screenshots. The header moon/sun control switches themes and remembers your choice. The earlier dark-default preference is replaced once; newly selected preferences persist.
 
-Only Schema Guard is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Model changes, document examples, validator preview and history open supporting dialogs.
+Only mongoDiff is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Scan controls and document issues are separated into LeafyGreen Cards. Model changes, document examples, validator preview and history open LeafyGreen Modals. Document inspection shows flat Atlas-style key/value previews.
 
 The main view shows one scan result, a LeafyGreen table with **Field / Issue / Documents / Details**, the generated operations, and **Apply Fix & Rescan**. Counts always come from reports. **View validator** opens the generated candidate; the API does not compare the installed validator or provide Git/PR linkage. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
 
@@ -70,7 +72,7 @@ The main view shows one scan result, a LeafyGreen table with **Field / Issue / D
 1. The dashboard loads 12 synthetic movies and reports **7 failures**. The header's **Demo** badge and data-source selector identify these as fixture results.
 2. The table summarizes three issue groups: **4** movies with missing/invalid ratings, **2** with string runtimes, and **2** with missing/null runtimes. A movie can appear under both rating and runtime issues; the headline remains the unique failing-document count.
 3. Select **Details** for examples. Missing and null remain separate in the detail dialog. The rating group includes both missing and invalid values.
-4. Review **Remediation pipeline**. It uses the existing example choices: defaults `rated="PG"`, `runtime=90`; mappings `PG13→PG-13`, `NR→PG`, and `N/A→90`. These are demo decisions, not recommendations for real movies.
+4. Review **Repair plan**. It uses the existing example choices: defaults `rated="PG"`, `runtime=90`; mappings `PG13→PG-13`, `NR→PG`, and `N/A→90`. These are demo decisions, not recommendations for real movies.
 5. Select **Apply Fix & Rescan**, then confirm **Apply & Rescan**. The isolated fixture repair returns a fresh report with **0 failures**.
 6. **Run history** opens saved reports and the model-change view. **View validator**, report export, and script download remain available.
 7. **Reset demo data** restores the seed and scans again.

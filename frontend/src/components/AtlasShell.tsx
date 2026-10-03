@@ -5,6 +5,7 @@ import { MongoDBLogoMark } from "@leafygreen-ui/logo";
 import TextInput from "@leafygreen-ui/text-input";
 import { Tabs, Tab } from "@leafygreen-ui/tabs";
 import Badge from "@leafygreen-ui/badge";
+import Button from "@leafygreen-ui/button";
 import type { Report, Source } from "../types";
 import { number } from "../api";
 
@@ -71,7 +72,7 @@ export function AtlasShell({
         <div className="nav-picker">
           <span>ORGANIZATION</span>
           <div>
-            Schema Guard workspace <Icon aria-hidden glyph="ChevronDown" />
+            mongoDiff workspace <Icon aria-hidden glyph="ChevronDown" />
           </div>
         </div>
         <Icon aria-hidden className="nav-chevron" glyph="ChevronRight" />
@@ -168,7 +169,6 @@ export function AtlasShell({
               placeholder="Filter collections…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              sizeVariant="small"
             />
           </div>
           <div className="database-tree">
@@ -227,7 +227,6 @@ export function AtlasShell({
               {demo
                 ? "Isolated demo collection"
                 : "Server-configured collection"}
-              <small>Other collections are not loaded.</small>
             </span>
           </div>
         </aside>
@@ -262,14 +261,15 @@ export function AtlasShell({
                   </span>
                 )}
               </div>
-              <a
+              <Button
                 className="collection-docs"
                 href="https://www.mongodb.com/docs/manual/core/schema-validation/"
                 target="_blank"
                 rel="noreferrer"
+                leftGlyph={<Icon aria-hidden glyph="OpenNewTab" />}
               >
-                Schema validation docs <Icon aria-hidden glyph="OpenNewTab" />
-              </a>
+                Documentation
+              </Button>
             </div>
             <div className="collection-tabs" ref={tabsRef}>
               <Tabs
@@ -284,7 +284,7 @@ export function AtlasShell({
                   name={
                     <span className="guard-tab-label">
                       <Icon aria-hidden glyph="Shield" />
-                      Schema Guard<Badge variant="green">New</Badge>
+                      mongoDiff<Badge variant="green">New</Badge>
                     </span>
                   }
                 >
@@ -293,10 +293,10 @@ export function AtlasShell({
               </Tabs>
             </div>
           </main>
-          <footer className="atlas-footer">
-            <span>MongoDB Atlas Schema Guard · v1.0.0</span>
-          </footer>
         </div>
+        <footer className="atlas-footer">
+          <span>MongoDB Atlas mongoDiff · v1.0.0</span>
+        </footer>
       </div>
     </div>
   );

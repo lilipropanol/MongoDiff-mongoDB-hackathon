@@ -4,6 +4,9 @@ import Button from "@leafygreen-ui/button";
 import Icon from "@leafygreen-ui/icon";
 import IconButton from "@leafygreen-ui/icon-button";
 import Badge from "@leafygreen-ui/badge";
+import Banner from "@leafygreen-ui/banner";
+import Card from "@leafygreen-ui/card";
+import { Select, Option } from "@leafygreen-ui/select";
 import { Body } from "@leafygreen-ui/typography";
 import { modelName, type Issue } from "./presentation";
 import { api, download, number } from "./api";
@@ -22,7 +25,7 @@ import { ValidatorView } from "./components/ValidatorView";
 type Detail = "changes" | "validator" | "history" | Issue | null;
 export function App() {
   const [dark, setDark] = useState(
-    () => localStorage.getItem("schema-guard-theme") !== "light",
+    () => localStorage.getItem("schema-guard-theme-v2") === "dark",
   );
   const [config, setConfig] = useState<Config | null>(null);
   const [source, setSource] = useState<Source>("demo");
@@ -38,7 +41,10 @@ export function App() {
   const working = busy || repairBusy;
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
-    localStorage.setItem("schema-guard-theme", dark ? "dark" : "light");
+    localStorage.setItem("schema-guard-theme-v2", dark ? "dark" : "light");
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", dark ? "#001e2b" : "#ffffff");
   }, [dark]);
   async function refreshHistory() {
     try {
@@ -95,14 +101,14 @@ export function App() {
   const collection = report?.collection || config?.collection || "movies";
   const detailTitle =
     typeof detail === "object" && detail
-      ? `${detail.field} · ${detail.label}`
+      ? detail.field
       : detail === "changes"
         ? "Application model changes"
         : detail === "validator"
           ? "Collection validator preview"
           : "Run history";
   return (
-    <LeafyGreenProvider darkMode={dark} baseFontSize={14}>
+    <LeafyGreenProvider darkMode={dark} baseFontSize={16}>
       <AtlasShell
         database={database}
         collection={collection}
@@ -111,119 +117,127 @@ export function App() {
         dark={dark}
         onTheme={() => setDark(!dark)}
       >
-        <div className="guard-heading">
-          <div>
-            <div className="title-line">
-              <Icon aria-hidden glyph="Shield" size={24} />
-              <h2>Schema Guard</h2>
-              <Badge variant="blue">
+        <Card
+          as="section"
+          className="analysis-panel"
+          aria-label="Collection analysis"
+        >
+          <div className="guard-heading">
+            <div className="scan-caption">
+              <Badge variant="lightgray">
                 {source === "demo" ? "Demo" : "Preview"}
               </Badge>
+              <Body className="guard-description">
+                {busy ? (
+                  "Scanning collection…"
+                ) : report ? (
+                  <>
+                    Scan complete for collection{" "}
+                    <code>{report.collection}</code> against proposed model{" "}
+                    <code>{modelName(report)}</code>.
+                  </>
+                ) : (
+                  "Scan your collection against the proposed model."
+                )}
+              </Body>
             </div>
-            <Body className="guard-description">
-              {busy ? (
-                "Scanning collection…"
-              ) : report ? (
-                <>
-                  Scan complete for collection <code>{report.collection}</code>{" "}
-                  against proposed model <code>{modelName(report)}</code>.
-                </>
-              ) : (
-                "Scan your collection against the proposed model."
-              )}
-            </Body>
-          </div>
-          <div className="heading-actions">
-            <Button
-              size="small"
-              leftGlyph={<Icon aria-hidden glyph="Clock" />}
-              onClick={() => setDetail("history")}
-              disabled={working}
-            >
-              Run history
-            </Button>
-            <Button
-              size="small"
-              leftGlyph={<Icon aria-hidden glyph="Download" />}
-              disabled={!report || working}
-              onClick={() =>
-                report &&
-                download(
-                  `schema-guard-${report.id}.json`,
-                  JSON.stringify(report, null, 2),
-                )
-              }
-            >
-              Export report
-            </Button>
-          </div>
-        </div>
-        <div className="analysis-toolbar">
-          <div className="source-control">
-            <label htmlFor="data-source">Data source</label>
-            <select
-              id="data-source"
-              value={source}
-              disabled={working}
-              onChange={(e) => selectSource(e.target.value as Source)}
-            >
-              <option value="demo">Demo fixtures</option>
-              <option value="atlas">
-                MongoDB Atlas · read-only
-                {config?.atlas_configured ? "" : " · setup required"}
-              </option>
-            </select>
-          </div>
-          <div className="scan-meta">
-            <Icon aria-hidden glyph="Code" />
-            <span>
-              Current model <Icon aria-hidden glyph="ArrowRight" /> Proposed
-              model
-            </span>
-            {report && (
-              <span className="scan-time">
-                Last scan{" "}
-                {new Date(report.run_at).toLocaleTimeString("en-IE", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            )}
-          </div>
-          <div className="toolbar-buttons">
-            {source === "demo" && (
-              <IconButton
-                aria-label="Reset demo data"
-                onClick={() => void run("demo", true)}
+            <div className="heading-actions">
+              <Button
+                leftGlyph={<Icon aria-hidden glyph="Clock" />}
+                onClick={() => setDetail("history")}
                 disabled={working}
               >
-                <Icon aria-hidden glyph="Refresh" />
-              </IconButton>
-            )}
-            <Button
-              size="small"
-              variant="primary"
-              className="guard-primary"
-              leftGlyph={<Icon aria-hidden glyph="Play" />}
-              onClick={() => void run(source)}
-              disabled={working}
-            >
-              {busy ? "Analyzing…" : "Run analysis"}
-            </Button>
+                Run history
+              </Button>
+              <Button
+                leftGlyph={<Icon aria-hidden glyph="Download" />}
+                disabled={!report || working}
+                onClick={() =>
+                  report &&
+                  download(
+                    `mongodiff-${report.id}.json`,
+                    JSON.stringify(report, null, 2),
+                  )
+                }
+              >
+                Export report
+              </Button>
+            </div>
           </div>
-        </div>
+          <div className="analysis-toolbar">
+            <div className="source-control">
+              <span id="data-source-label">Data source</span>
+              <Select
+                className="source-select"
+                id="data-source"
+                aria-labelledby="data-source-label"
+                value={source}
+                disabled={working}
+                allowDeselect={false}
+                onChange={(value) => {
+                  if (value === "demo" || value === "atlas")
+                    selectSource(value);
+                }}
+              >
+                <Option value="demo">Demo fixtures</Option>
+                <Option
+                  value="atlas"
+                  description={
+                    config?.atlas_configured
+                      ? "Read-only analysis"
+                      : "Setup required · read-only"
+                  }
+                >
+                  MongoDB Atlas
+                </Option>
+              </Select>
+            </div>
+            <div className="scan-meta">
+              {report && (
+                <span className="scan-time">
+                  Last scan{" "}
+                  {new Date(report.run_at).toLocaleTimeString("en-IE", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+            <div className="toolbar-buttons">
+              {source === "demo" && (
+                <IconButton
+                  aria-label="Reset demo data"
+                  onClick={() => void run("demo", true)}
+                  disabled={working}
+                >
+                  <Icon aria-hidden glyph="Refresh" />
+                </IconButton>
+              )}
+              <Button
+                variant="primary"
+                className="guard-primary"
+                leftGlyph={<Icon aria-hidden glyph="Play" />}
+                onClick={() => void run(source)}
+                disabled={working}
+              >
+                {busy ? "Analyzing…" : "Run analysis"}
+              </Button>
+            </div>
+          </div>
+        </Card>
         {error && (
-          <div className="error-banner" role="alert">
-            <Icon aria-hidden glyph="Warning" />
-            <p>{error}</p>
-            <Button
-              size="xsmall"
-              disabled={working}
-              onClick={() => void run(source)}
-            >
-              Try again
-            </Button>
-          </div>
+          <Banner variant="danger" className="scan-error" role="alert">
+            <div className="scan-error-content">
+              <span>{error}</span>
+              <Button
+                size="xsmall"
+                disabled={working}
+                onClick={() => void run(source)}
+              >
+                Try again
+              </Button>
+            </div>
+          </Banner>
         )}
         {busy ? (
           <div
@@ -238,15 +252,12 @@ export function App() {
         ) : report ? (
           <div className="view-enter">
             {before && (
-              <div className="verification-banner">
-                <Icon aria-hidden glyph="CheckmarkWithCircle" />
-                <div>
-                  <strong>
-                    {number(before.failing)} → {number(report.failing)} failing
-                    documents
-                  </strong>
-                </div>
-              </div>
+              <Banner variant="success" className="scan-verification">
+                <strong>
+                  {number(before.failing)} → {number(report.failing)} failing
+                  documents
+                </strong>
+              </Banner>
             )}
             <ScanSummary
               report={report}
@@ -281,7 +292,11 @@ export function App() {
           </div>
         )}
         {detail && (
-          <DetailDialog title={detailTitle} onClose={() => setDetail(null)}>
+          <DetailDialog
+            title={detailTitle}
+            compact={typeof detail === "object"}
+            onClose={() => setDetail(null)}
+          >
             {typeof detail === "object" ? (
               <ReasonDetails issue={detail} />
             ) : detail === "history" ? (

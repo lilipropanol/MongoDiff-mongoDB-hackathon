@@ -2,17 +2,17 @@
 
 ## Direction agreed before implementation
 
-Recreate the supplied Atlas Data Explorer layout with a single implemented collection feature: **Schema Guard**. The familiar Documents, Aggregations, Schema, Indexes, Validation and Search Indexes tabs remain visible as disabled context. Model changes, validator preview and history become supporting dialogs inside Schema Guard.
+Recreate the supplied Atlas Data Explorer layout with a single implemented collection feature: **mongoDiff**. The familiar Documents, Aggregations, Schema, Indexes, Validation and Search Indexes tabs remain visible as disabled context. Model changes, validator preview and history become supporting dialogs inside mongoDiff.
 
 Use the actual React components published from [mongodb/leafygreen-ui](https://github.com/mongodb/leafygreen-ui), inspected from a local clone, and [MongoDB's design system](https://www.mongodb.design/). Use its logo, icons, buttons, badges, tabs, typography and syntax-highlighted code. Use Euclid Circular A, the font specified by LeafyGreen's tokens, with a system fallback.
 
-The screenshot supplies layout; the supplied dark tokens supply the initial theme. Provide a light theme switch for comparison with the screenshot. Keep styling centralized in `frontend/src/styles.css` and `brand.md`.
+The latest Documents, Aggregations and Indexes screenshots supply the layout and default light theme. Keep the earlier dark palette available through the theme switch. Keep styling centralized in `frontend/src/styles.css` and `brand.md`.
 
 ## Implementation sequence
 
 1. Install individual published LeafyGreen packages; keep the existing React/Vite application.
 2. Build an Atlas shell: organization/project header, global icon rail, searchable database tree, open collection strip, breadcrumb and collection tabs.
-3. Build the Schema Guard surface: source/scan toolbar, compact scan result, a LeafyGreen issues table with document details, and an embedded reviewed repair workflow.
+3. Build the mongoDiff surface: source/scan toolbar, compact scan result, a LeafyGreen issues table with document details, and an embedded reviewed repair workflow.
 4. Preserve model diff, validator export, session history, report export, reset and fixture confirmation through supporting dialogs/actions.
 5. Check the production build, the full fixture repair loop, light/dark appearance, keyboard/dialog behavior, accessibility and narrow layouts. Update the smoke script for the new navigation.
 
@@ -32,7 +32,15 @@ The approved Atlas shell, colors and typography are preserved. The status cards 
 
 The rated row includes missing and invalid values (4 real demo documents). The runtime rows cover wrong types (2) and missing/null (2). Do not hardcode the illustrative row counts or hide enum failures. The displayed/downloaded script is formatted from the exact API plan operations, including the null default and explicit mappings needed for 7 → 0. The database remains the actual report target, not a hardcoded `sample_mflix`.
 
-`frontend/src/presentation.ts` owns this presentation-only consolidation and demo presets. There are no backend or API-shape changes. CSS changes are limited to the compact scan summary, table and corresponding loading state. Custom decisions are API-only until an optional advanced dialog is needed.
+`frontend/src/presentation.ts` owns this presentation-only consolidation and demo presets. There are no backend or API-shape changes. CSS covers the light Atlas shell, flat issue table, compact scan summary, bounded repair code and responsive layout. Custom decisions are API-only until an optional advanced dialog is needed.
+
+## Light Atlas refinement
+
+Light mode is now the default. Existing dark-default preferences are replaced once through the versioned theme key; future user choices persist and are applied before paint. LeafyGreen Select replaces the native source dropdown, and Banner handles scan errors and verified repair results. Desktop buttons use the standard kit size. Navigation spacing, readable inactive tabs, gray explorer, selected collection, flat table and footer position follow the latest supplied references. The LeafyGreen base font is 16px; the collection workspace scrolls inside the fixed navigation/footer shell. The tab supplies the product title; the content header contains the scan subtitle and a quiet Demo/Preview badge. The repair section is labelled **Repair plan**.
+
+## Panels and document inspection
+
+The public name is **mongoDiff**. LeafyGreen Cards separate scan controls from the issue table; the repair panel remains distinct. The repeated current/proposed-model toolbar label is removed because the scan subtitle already names the proposed model. Supporting dialogs and fix confirmation use LeafyGreen Modal. Issue inspection shows a field title, one affected count, and individual document Cards with Atlas-style key/value rows and a short reason label. Missing and null remain distinct; bounded examples are labelled when they cover only part of the failing population. Public download names use `mongodiff-*`; stored report/session IDs and backend/CLI identifiers are compatible with the starter.
 
 ## Delivered
 

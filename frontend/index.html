@@ -1,10 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#001e2b" />
-    <title>Schema Guard · Collection workspace</title>
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      // Apply the saved preference before paint; the Atlas default is light.
+      try {
+        if (localStorage.getItem("schema-guard-theme-v2") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+          document.querySelector('meta[name="theme-color"]').content =
+            "#001e2b";
+        }
+      } catch {}
+    </script>
+    <title>mongoDiff · Collection workspace</title>
   </head>
   <body>
     <div id="root"></div>

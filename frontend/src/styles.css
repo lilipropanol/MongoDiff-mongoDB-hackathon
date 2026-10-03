@@ -26,6 +26,26 @@
   font-family:
     "Euclid Circular A", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 14px;
+  color-scheme: light;
+  --canvas: #ffffff;
+  --panel: #ffffff;
+  --inner: #f8faf9;
+  --border: #e7eded;
+  --top: #ffffff;
+  --explorer: #f8faf9;
+  --text: #001e2b;
+  --muted: #5c6c75;
+  --green: #00684a;
+  --hover: #00553d;
+  --red: #cf3b3b;
+  --red-text: #b42318;
+  --amber: #855600;
+  --selected: #e8edeb;
+  --subtle: #f1f5f4;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+:root[data-theme="dark"],
+.atlas-shell[data-theme="dark"] {
   color-scheme: dark;
   --canvas: #001e2b;
   --panel: #0c2340;
@@ -42,26 +62,6 @@
   --amber: #ffc010;
   --selected: #12352e;
   --subtle: #0c2838;
-  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-}
-:root[data-theme="light"],
-.atlas-shell[data-theme="light"] {
-  color-scheme: light;
-  --canvas: #fff;
-  --panel: #fff;
-  --inner: #f9fbfa;
-  --border: #e1e7e8;
-  --top: #fff;
-  --explorer: #f8faf9;
-  --text: #001e2b;
-  --muted: #536873;
-  --green: #00684a;
-  --hover: #00553d;
-  --red: #cf3b3b;
-  --red-text: #b42318;
-  --amber: #855600;
-  --selected: #e7eeec;
-  --subtle: #f1f5f4;
 }
 * {
   box-sizing: border-box;
@@ -175,7 +175,7 @@ button {
   z-index: 20;
 }
 .logo-cell {
-  width: 64px;
+  width: 68px;
   align-self: stretch;
   display: flex;
   align-items: center;
@@ -188,16 +188,16 @@ button {
   min-width: 240px;
 }
 .nav-picker > span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.6px;
   color: var(--muted);
 }
 .nav-picker > div {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 25px;
 }
 .project-picker {
@@ -239,7 +239,7 @@ button {
   min-height: calc(100vh - 64px);
 }
 .icon-rail {
-  width: 64px;
+  width: 68px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--explorer);
@@ -272,7 +272,7 @@ button {
   color: var(--muted);
 }
 .collection-explorer {
-  width: 284px;
+  width: clamp(284px, 21.1vw, 432px);
   flex-shrink: 0;
   background: var(--explorer);
   border-right: 1px solid var(--border);
@@ -286,7 +286,7 @@ button {
   justify-content: space-between;
 }
 .explorer-heading h2 {
-  font-size: 22px;
+  font-size: 24px;
   letter-spacing: -0.4px;
 }
 .explorer-links {
@@ -299,7 +299,7 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 15px;
+  font-size: 16px;
 }
 .cluster-heading {
   display: flex;
@@ -443,7 +443,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 24px 28px 12px;
+  padding: 18px 24px 12px;
   min-height: 78px;
 }
 .collection-path {
@@ -482,7 +482,7 @@ button {
   font-size: 12px;
 }
 .collection-tabs {
-  padding: 0 28px;
+  padding: 0 24px;
 }
 .collection-tabs [role="tablist"] {
   overflow-x: auto;
@@ -557,19 +557,13 @@ button {
   gap: 10px;
   flex-shrink: 0;
 }
-.source-control label {
+.source-control > span {
   font-size: 12px;
   color: var(--muted);
 }
-.source-control select {
-  height: 30px;
-  max-width: 220px;
-  border: 1px solid var(--muted);
-  border-radius: 5px;
-  background: var(--canvas);
-  color: var(--text);
-  font-size: 12px;
-  padding: 0 25px 0 9px;
+.source-select {
+  width: 220px;
+  min-width: 0;
 }
 .scan-meta {
   display: flex;
@@ -1348,7 +1342,7 @@ button {
 }
 @media (min-width: 1800px) {
   .collection-explorer {
-    width: 360px;
+    width: 432px;
   }
   .collection-heading {
     padding-top: 28px;
@@ -1432,11 +1426,11 @@ button {
     gap: 8px;
     padding: 10px;
   }
-  .source-control label {
+  .source-control > span {
     font-size: 11px;
   }
-  .source-control select {
-    max-width: 180px;
+  .source-select {
+    width: 180px;
   }
   .atlas-footer {
     gap: 12px;
@@ -1452,7 +1446,7 @@ button {
   .collection-explorer.explorer-open {
     display: flex;
     position: fixed;
-    inset: 64px auto 0 64px;
+    inset: 64px auto 0 68px;
     z-index: 30;
     width: 284px;
     box-shadow: 20px 0 60px #0005;
@@ -1605,9 +1599,8 @@ button {
     width: 100%;
     justify-content: space-between;
   }
-  .source-control select {
-    max-width: 172px;
-    font-size: 11px;
+  .source-select {
+    width: 172px;
   }
   .toolbar-buttons {
     width: 100%;
@@ -1840,12 +1833,394 @@ button {
 
 .skeleton-summary {
   height: 32px;
-  max-width: 360px;
+  max-width: 432px;
 }
 @media (max-width: 600px) {
   .scan-summary {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+}
+
+/* Atlas light collection workspace, based on the supplied Documents/Indexes views. */
+:root[data-theme="light"] .rail-active {
+  background: #e3fcf3;
+}
+:root[data-theme="light"] .selected-collection:before {
+  display: none;
+}
+:root[data-theme="light"] .collection-tabs [role="tab"]:disabled,
+:root[data-theme="light"] .collection-tabs [role="tab"][aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 1;
+}
+.collection-tabs [role="tab"] {
+  font-size: 16px;
+}
+.collection-tabs [role="tab"][aria-selected="true"] {
+  color: var(--green);
+}
+.collection-path {
+  font-size: 16px;
+}
+.analysis-toolbar {
+  background: var(--canvas);
+  border-radius: 8px;
+}
+.scan-summary {
+  padding-top: 16px;
+}
+.scan-verification,
+.scan-error {
+  margin: 16px 0;
+}
+.scan-error-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.scan-error-content > span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.cause-table thead tr:last-of-type {
+  box-shadow: 0 4px var(--border);
+}
+.cause-table th {
+  background: var(--canvas);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cause-table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.root-cause-panel {
+  border: 0;
+  border-radius: 0;
+}
+.root-cause-panel .surface-heading {
+  border-bottom: 0;
+  padding: 12px 0 8px;
+}
+.root-cause-panel .surface-heading h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.remediation-panel {
+  border-radius: 8px;
+}
+.remediation-panel .surface-heading {
+  background: var(--canvas);
+  padding: 14px 18px;
+}
+.remediation-panel .surface-heading h2 {
+  font-size: 16px;
+}
+:root[data-theme="light"] .code-panel,
+:root[data-theme="light"] .code-toolbar,
+:root[data-theme="light"] .code-scroll > div,
+:root[data-theme="light"] .code-scroll pre {
+  background: var(--canvas) !important;
+}
+:root[data-theme="light"] .code-toolbar {
+  background: var(--explorer) !important;
+}
+:root[data-theme="light"] .guard-primary:not(:disabled) {
+  background: #00684a !important;
+  border-color: #00684a !important;
+}
+:root[data-theme="light"] .guard-primary:not(:disabled):hover {
+  background: #00553d !important;
+  border-color: #00553d !important;
+}
+@media (max-width: 600px) {
+  .source-select {
+    width: 100%;
+  }
+  .scan-error-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* Footer spans the explorer and collection workspace, as in Atlas. */
+.atlas-body {
+  display: grid;
+  grid-template-columns: 68px auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+.icon-rail {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.collection-explorer {
+  grid-column: 2;
+  grid-row: 1;
+}
+.collection-workspace {
+  grid-column: 3;
+  grid-row: 1;
+}
+.atlas-footer {
+  grid-column: 2 / -1;
+  padding: 24px 28px;
+  font-size: 12px;
+}
+.scan-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.scan-caption .guard-description {
+  margin-top: 0 !important;
+}
+.guard-heading {
+  margin-bottom: 16px;
+}
+.remediation-panel .code-scroll {
+  max-height: 260px;
+}
+@media (max-width: 900px) {
+  .atlas-body {
+    grid-template-columns: 68px minmax(0, 1fr);
+  }
+  .collection-workspace {
+    grid-column: 2;
+  }
+}
+@media (max-width: 600px) {
+  .atlas-body {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .collection-path,
+  .collection-tabs [role="tab"] {
+    font-size: 12px;
+  }
+  .scan-caption {
+    align-items: flex-start;
+  }
+  .scan-caption .guard-description {
+    font-size: 12px !important;
+  }
+  .source-select {
+    width: 180px;
+  }
+  .atlas-footer {
+    padding: 16px 12px;
+    font-size: 10px;
+  }
+}
+/* Atlas keeps navigation and the footer fixed while the collection scrolls. */
+.atlas-shell {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.atlas-topbar {
+  flex-shrink: 0;
+}
+.atlas-body {
+  flex: 1;
+  min-height: 0;
+}
+.collection-workspace,
+.collection-explorer {
+  min-height: 0;
+}
+.collection-explorer {
+  overflow-y: auto;
+}
+.collection-workspace main {
+  min-height: 0;
+  overflow-y: auto;
+}
+.open-collection-strip {
+  flex-shrink: 0;
+}
+@media (min-width: 901px) {
+  .nav-picker > span {
+    font-size: 13px;
+  }
+  .nav-picker > div {
+    font-size: 18px;
+  }
+  .explorer-links > span {
+    font-size: 18px;
+  }
+  .cluster-heading {
+    font-size: 14px;
+  }
+  .database-tree {
+    font-size: 16px;
+  }
+  .collection-tabs [role="tab"],
+  .collection-path,
+  .collection-path h1 {
+    font-size: 18px;
+  }
+  .cause-table table {
+    font-size: 14px;
+  }
+  .cause-table th {
+    font-size: 16px;
+  }
+  .cause-table .field-name {
+    font-size: 13px;
+  }
+  .scan-summary .scan-result {
+    font-size: 16px;
+  }
+}
+/* LeafyGreen panels give scan controls, issue rows and repairs clear boundaries. */
+.guard-content .analysis-panel {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--panel);
+  overflow: hidden;
+}
+.analysis-panel .guard-heading {
+  padding: 16px 18px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+}
+.analysis-panel .analysis-toolbar {
+  border: 0;
+  border-radius: 0;
+  padding: 14px 18px;
+}
+.analysis-panel .scan-time {
+  border-left: 0;
+  padding-left: 0;
+}
+.guard-content .issues-panel {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--panel);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.issues-heading {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--inner);
+}
+.issues-heading h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.issues-panel .cause-table thead tr:last-of-type {
+  box-shadow: none;
+}
+.issues-panel .cause-table th {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.issues-panel .cause-table td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.detail-modal[open] {
+  max-height: 85dvh;
+  overflow: auto;
+  background: var(--panel);
+  color: var(--text);
+}
+.detail-modal-title {
+  margin-bottom: 16px;
+  padding-right: 24px;
+  font-size: 24px;
+  font-weight: 600;
+}
+.detail-modal-body {
+  min-width: 0;
+}
+.reason-details .inspection-summary {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+.reason-details .inspection-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -12px 0 20px;
+}
+.document-list {
+  display: grid;
+  gap: 12px;
+}
+.document-list .document-card {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: none;
+  background: var(--panel);
+}
+.document-status {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.document-fields {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.document-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.document-field dt {
+  min-width: 56px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+.document-field dd {
+  margin: 0;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.document-field.affected dt {
+  color: var(--text);
+}
+.document-string {
+  color: var(--green);
+}
+.document-missing {
+  font-family: "Euclid Circular A", Arial, sans-serif;
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+.repair-confirmation p {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .analysis-panel .guard-heading,
+  .analysis-panel .analysis-toolbar,
+  .issues-heading {
+    padding: 14px;
+  }
+  .document-list .document-card {
+    padding: 14px 12px;
+  }
+  .document-fields {
+    font-size: 12px;
   }
 }

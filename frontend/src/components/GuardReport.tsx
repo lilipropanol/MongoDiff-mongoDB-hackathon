@@ -1,5 +1,6 @@
 import Button from "@leafygreen-ui/button";
 import Icon from "@leafygreen-ui/icon";
+import Card from "@leafygreen-ui/card";
 import { Body } from "@leafygreen-ui/typography";
 import {
   Cell,
@@ -29,9 +30,7 @@ export function ScanSummary({
         </strong>{" "}
         documents need attention.
       </Body>
-      <Button size="small" onClick={openValidator}>
-        View validator
-      </Button>
+      <Button onClick={openValidator}>View validator</Button>
     </section>
   );
 }
@@ -45,19 +44,18 @@ export function RootCauseTable({
 }) {
   const issues = summarizeIssues(report);
   return (
-    <section
-      className="surface root-cause-panel"
+    <Card
+      as="section"
+      className="issues-panel"
       aria-labelledby="root-cause-title"
     >
-      <div className="surface-heading">
-        <div>
-          <h2 id="root-cause-title">Document issues</h2>
-        </div>
+      <div className="issues-heading">
+        <h2 id="root-cause-title">Document issues</h2>
       </div>
       <Table
         className="cause-table"
         aria-labelledby="root-cause-title"
-        baseFontSize={13}
+        baseFontSize={16}
         verticalAlignment="middle"
       >
         <TableHead>
@@ -108,7 +106,7 @@ export function RootCauseTable({
           {number(report.unclassified)} documents need further review.
         </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -120,42 +118,62 @@ const reasonLabels: Record<string, string> = {
   nested_or_array_constraint: "Nested rule mismatch",
 };
 export function ReasonDetails({ issue }: { issue: Issue }) {
+  const examples = issue.parts.flatMap((part) =>
+    part.examples.map((document) => ({ document, reason: part.reason })),
+  );
   return (
     <div className="reason-details">
-      <p>
-        {issue.label} · {number(issue.count)} documents
-      </p>
-      {issue.parts.map((part) => (
-        <section key={part.reason}>
-          <h3>
-            {reasonLabels[part.reason] || part.reason} · {number(part.count)}
-          </h3>
-          {part.examples.map((example, i) => (
-            <div className="document-example" key={`${part.reason}-${i}`}>
-              <div className="example-heading">
-                <Icon aria-hidden glyph="Folder" />
-                Example {i + 1}
-              </div>
-              {Object.entries(example).map(([key, value]) => (
+      <Body className="inspection-summary">
+        {number(issue.count)} documents need attention.
+      </Body>
+      {examples.length > 0 && examples.length < issue.count && (
+        <Body className="inspection-note">
+          Showing {number(examples.length)} examples.
+        </Body>
+      )}
+      <div className="document-list">
+        {examples.map(({ document, reason }, index) => (
+          <Card
+            as="article"
+            className="document-card"
+            key={`${reason}-${index}`}
+          >
+            <div className="document-status">
+              {reasonLabels[reason] || "Schema mismatch"}
+            </div>
+            <dl className="document-fields">
+              {Object.entries(document).map(([key, value]) => (
                 <div
-                  className={key === issue.field ? "affected-field" : ""}
+                  className={
+                    key === issue.field
+                      ? "document-field affected"
+                      : "document-field"
+                  }
                   key={key}
                 >
-                  <code>{key}</code>
-                  <pre>{JSON.stringify(value, null, 2)}</pre>
+                  <dt>{key}:</dt>
+                  <dd
+                    className={
+                      typeof value === "string"
+                        ? "document-string"
+                        : "document-value"
+                    }
+                  >
+                    {JSON.stringify(value, null, 2)}
+                  </dd>
                 </div>
               ))}
-              {!(issue.field in example) && (
-                <div className="affected-field">
-                  <code>{issue.field}</code>
-                  <em>Missing from document</em>
+              {!(issue.field in document) && (
+                <div className="document-field affected">
+                  <dt>{issue.field}:</dt>
+                  <dd className="document-missing">Missing from document</dd>
                 </div>
               )}
-            </div>
-          ))}
-          {!part.examples.length && <p>No examples available.</p>}
-        </section>
-      ))}
+            </dl>
+          </Card>
+        ))}
+      </div>
+      {!examples.length && <Body>No examples available.</Body>}
     </div>
   );
 }

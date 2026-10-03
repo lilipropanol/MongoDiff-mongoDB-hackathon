@@ -1,4 +1,4 @@
-# Schema Guard — three-person handoff
+# mongoDiff — three-person handoff
 
 ## Starting point
 

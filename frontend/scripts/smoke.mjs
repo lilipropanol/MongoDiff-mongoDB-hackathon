@@ -11,6 +11,9 @@ const browser = await chromium.launch({
 const context = await browser.newContext({
   viewport: { width: 1440, height: 1000 },
 });
+await context.addInitScript(() => {
+  localStorage.setItem("schema-guard-theme", "dark");
+});
 const page = await context.newPage();
 const errors = [],
   plans = [];
@@ -20,13 +23,23 @@ page.on("response", async (response) => {
     plans.push(await response.json());
 });
 async function settle() {
-  await page.evaluate(() =>
-    Promise.all(
-      Array.from(document.querySelectorAll(".view-enter")).flatMap((el) =>
-        el.getAnimations().map((animation) => animation.finished),
-      ),
-    ),
-  );
+  await page.evaluate(async () => {
+    while (true) {
+      const animations = document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().iterations !== Infinity &&
+            animation.playState !== "finished" &&
+            animation.playState !== "idle",
+        );
+      if (!animations.length) return;
+      // A theme change can replace a transition; cancellation is normal.
+      await Promise.all(
+        animations.map((animation) => animation.finished.catch(() => {})),
+      );
+    }
+  });
 }
 async function accessible(label) {
   await settle();
@@ -55,7 +68,7 @@ async function checkScript() {
     page.waitForEvent("download"),
     page
       .getByRole("button", {
-        name: "Download schema_guard_fix.js",
+        name: "Download mongodiff_fix.js",
         exact: true,
       })
       .click(),
@@ -96,6 +109,7 @@ try {
     { waitUntil: "networkidle" },
   );
   await page.getByTestId("failure-count").waitFor();
+  await page.evaluate(() => document.fonts.ready);
   await settle();
   assert.equal(
     await page.getByTestId("failure-count").textContent(),
@@ -103,7 +117,7 @@ try {
   );
   assert.equal(
     await page
-      .getByRole("tab", { name: /Schema Guard/ })
+      .getByRole("tab", { name: /mongoDiff/ })
       .getAttribute("aria-selected"),
     "true",
   );
@@ -144,13 +158,14 @@ try {
       "Scan complete for collection movies against proposed model Movie.",
     )
     .waitFor();
-  await page.getByText("MongoDB Atlas Schema Guard · v1.0.0").waitFor();
+  await page.getByText("MongoDB Atlas mongoDiff · v1.0.0").waitFor();
   await checkScript();
   await page.screenshot({
-    path: "/tmp/schema-guard-atlas-dark.png",
+    path: "/tmp/schema-guard-atlas-light.png",
     fullPage: true,
   });
-  await accessible("simplified dark Schema Guard");
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
+  await accessible("default light mongoDiff");
   await page
     .getByRole("textbox", { name: "Filter collections", exact: true })
     .fill("no-such-collection");
@@ -166,28 +181,40 @@ try {
   await openDetails("Details for rated: Missing or invalid value");
   assert.match(await page.getByRole("dialog").innerText(), /NR/);
   assert.match(await page.getByRole("dialog").innerText(), /PG13/);
-  await accessible("grouped rating inspection");
-  await page.getByLabel("Close detail panel").click();
+  assert.equal(
+    await page.getByRole("dialog").locator(".document-card").count(),
+    4,
+  );
+  assert.equal(
+    (await page.getByRole("dialog").innerText()).includes("Example 1"),
+    false,
+  );
+  await accessible("flat rating inspection");
+  await page.screenshot({
+    path: "/tmp/mongodiff-rated-details.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close modal", exact: true }).click();
   await openDetails("Run history");
   await page
     .getByRole("button", { name: "Model changes", exact: true })
     .click();
   await accessible("model changes");
-  await page.getByLabel("Close detail panel").click();
+  await page.getByRole("button", { name: "Close modal", exact: true }).click();
   for (const name of ["View validator", "Run history"]) {
     await openDetails(name);
     await accessible(name);
     await page.keyboard.press("Escape");
   }
-  await page.getByLabel("Switch to light theme").click();
+  await page.getByLabel("Switch to dark theme").click();
   await page.screenshot({
-    path: "/tmp/schema-guard-atlas-light.png",
+    path: "/tmp/schema-guard-atlas-dark.png",
     fullPage: true,
   });
-  await accessible("simplified light Schema Guard");
+  await accessible("optional dark mongoDiff");
   await page.reload({ waitUntil: "networkidle" });
-  assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
-  await page.getByLabel("Switch to dark theme").click();
+  assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
+  await page.getByLabel("Switch to light theme").click();
   await checkScript();
   await page
     .getByRole("button", { name: "Apply Fix & Rescan", exact: true })
@@ -230,7 +257,7 @@ try {
     .waitFor();
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await accessible(`${width}px Schema Guard`);
+    await accessible(`${width}px mongoDiff`);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
@@ -241,7 +268,9 @@ try {
     for (const name of ["View validator", "Run history"]) {
       await openDetails(name);
       await accessible(`${width}px ${name}`);
-      await page.getByLabel("Close detail panel").click();
+      await page
+        .getByRole("button", { name: "Close modal", exact: true })
+        .click();
     }
     if (width === 375) {
       await page.screenshot({
@@ -252,7 +281,8 @@ try {
       await page.getByLabel("Close collection explorer").click();
     }
   }
-  await page.getByLabel("Data source").selectOption("atlas");
+  await page.getByRole("button", { name: "Data source", exact: true }).click();
+  await page.getByRole("option", { name: /MongoDB Atlas/ }).click();
   await page
     .getByRole("button", { name: "Run analysis", exact: true })
     .first()
