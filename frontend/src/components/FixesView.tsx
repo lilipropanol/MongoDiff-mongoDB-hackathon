@@ -90,7 +90,7 @@ export function FixesView({
         ) : plan ? (
           <CodeBlock
             label="Generated MongoDB operations"
-            filename="mongodiff_fix.js"
+            filename="MongoDiff_fix.js"
             code={repairScript(report, plan)}
           />
         ) : (

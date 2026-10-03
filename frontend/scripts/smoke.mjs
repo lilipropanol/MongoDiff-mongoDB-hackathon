@@ -78,7 +78,7 @@ async function checkScript() {
     page.waitForEvent("download"),
     page
       .getByRole("button", {
-        name: "Download mongodiff_fix.js",
+        name: "Download MongoDiff_fix.js",
         exact: true,
       })
       .click(),
@@ -127,7 +127,7 @@ try {
   );
   assert.equal(
     await page
-      .getByRole("tab", { name: /mongoDiff/ })
+      .getByRole("tab", { name: /MongoDiff/ })
       .getAttribute("aria-selected"),
     "true",
   );
@@ -168,14 +168,14 @@ try {
       "Scan complete for collection movies against proposed model Movie.",
     )
     .waitFor();
-  await page.getByText("MongoDB Atlas mongoDiff · v1.0.0").waitFor();
+  await page.getByText("MongoDB Atlas MongoDiff · v1.0.0").waitFor();
   await checkScript();
   await page.screenshot({
     path: "/tmp/schema-guard-atlas-light.png",
     fullPage: true,
   });
   assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
-  await accessible("default light mongoDiff");
+  await accessible("default light MongoDiff");
   await page
     .getByRole("textbox", { name: "Filter collections", exact: true })
     .fill("no-such-collection");
@@ -221,7 +221,7 @@ try {
     path: "/tmp/schema-guard-atlas-dark.png",
     fullPage: true,
   });
-  await accessible("optional dark mongoDiff");
+  await accessible("optional dark MongoDiff");
   await page.reload({ waitUntil: "networkidle" });
   assert.equal(await page.locator("html").getAttribute("data-theme"), "dark");
   await page.getByLabel("Switch to light theme").click();
@@ -267,7 +267,7 @@ try {
     .waitFor();
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await accessible(`${width}px mongoDiff`);
+    await accessible(`${width}px MongoDiff`);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,
@@ -333,7 +333,7 @@ try {
     await page.setViewportSize({ width: 1440, height: 1000 });
     const [response] = await Promise.all([
       page.waitForResponse((response) => response.url().endsWith("/api/analyze") && response.request().postDataJSON()?.suggestions === true),
-      page.getByRole("button", { name: "AI suggestions", exact: true }).click(),
+      page.getByRole("button", { name: "Voyage AI suggestions", exact: true }).click(),
     ]);
     const aiReport = await response.json();
     assert.equal(aiReport.failing, 7);

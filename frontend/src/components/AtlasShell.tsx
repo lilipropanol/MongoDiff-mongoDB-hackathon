@@ -79,7 +79,7 @@ export function AtlasShell({
         <div className="nav-picker">
           <span>ORGANIZATION</span>
           <div>
-            mongoDiff workspace <Icon aria-hidden glyph="ChevronDown" />
+            MongoDiff workspace <Icon aria-hidden glyph="ChevronDown" />
           </div>
         </div>
         <Icon aria-hidden className="nav-chevron" glyph="ChevronRight" />
@@ -306,7 +306,7 @@ export function AtlasShell({
                   name={
                     <span className="guard-tab-label">
                       <Icon aria-hidden glyph="Shield" />
-                      mongoDiff<Badge variant="green">New</Badge>
+                      MongoDiff<Badge variant="green">New</Badge>
                     </span>
                   }
                 >
@@ -317,7 +317,7 @@ export function AtlasShell({
           </main>
         </div>
         <footer className="atlas-footer">
-          <span>MongoDB Atlas mongoDiff · v1.0.0</span>
+          <span>MongoDB Atlas MongoDiff · v1.0.0</span>
         </footer>
       </div>
     </div>

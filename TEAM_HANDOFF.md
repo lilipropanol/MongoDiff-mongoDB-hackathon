@@ -1,11 +1,11 @@
-# mongoDiff — three-person handoff
+# MongoDiff — three-person handoff
 
 ## Current integrated state (2026-10-03)
 
 The UI owner has merged `engine/atlas-analysis` and the latest UI branch into `feature/schema-guard-atlas-ui`. The three build roles remain UI, schema/impact engine, and fixes/backend; integration is coordinated by the UI owner after branch pushes, not a separate role.
 
 - **Integrated:** language-neutral JSON Schema/model input, collection-validator input, deterministic breaking/compatible diff, bounded two-pass impact analysis, nested/list paths, distinct bad values, per-reason old/new counts, explanations, default warnings, schema-version analysis, measurement command, and optional lexical/Voyage/Atlas Vector Search suggestions.
-- **UI integration:** issue inspection shows nested paths, counts, explanations, bounded values and advisory candidates. The **AI suggestions** button opts in for demo or Atlas data. **Use suggestion** adds a human choice to the regenerated repair preview; application still requires confirmation. Warnings and schema-version summaries appear when supplied by the report.
+- **UI integration:** issue inspection shows nested paths, counts, explanations, bounded values and advisory candidates. The **Voyage AI suggestions** button opts in for demo or Atlas data. **Use suggestion** adds a human choice to the regenerated repair preview; application still requires confirmation. Warnings and schema-version summaries appear when supplied by the report.
 - **Safety:** Atlas scan and plan remain read-only. Fixture apply/restore affects only in-memory demo data. Atlas Vector Search can write only to its explicitly configured separate vocabulary collection. Suggestions never apply repairs.
 - **Still to verify:** run the combined checks; measure against the event Atlas cluster with the measurement command; verify Voyage and Vector Search credentials on a disposable namespace. Do not quote Atlas findings until measured.
 
@@ -78,7 +78,7 @@ How the UI owner can try it: pull the integration branch, merge the UI branch in
 ### Interrupted UI session continuation
 
 - Branch: `hoplite/poseidonia-c1e6cab1`.
-- Completed: reviewed the existing mongoDiff Cards/Modals and source across UI, API, CLI, and engine; fixed LeafyGreen filter labeling, mobile explorer keyboard focus/Escape/open state, and browser icon/workspace initials; added repeatable demo-only managed preview setup.
+- Completed: reviewed the existing MongoDiff Cards/Modals and source across UI, API, CLI, and engine; fixed LeafyGreen filter labeling, mobile explorer keyboard focus/Escape/open state, and browser icon/workspace initials; added repeatable demo-only managed preview setup.
 - Safety fixes: reject mismatched input/stored aliases and custom serializers instead of generating a misleading schema. Added regression coverage proving the fixture apply endpoint rejects Atlas plans.
 - API/report changes: none. Unsupported model configurations now fail explicitly.
 - Checks: 12 Python tests, production frontend build, and full Chrome/Axe smoke passed, including fixture repair 7 → 0, reset, themes, supporting modals, and 375/768/1280px inspection.

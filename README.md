@@ -1,4 +1,4 @@
-# MongoDB Atlas mongoDiff
+# MongoDB Atlas MongoDiff
 
 
 https://github.com/user-attachments/assets/fc70b84d-00f5-4083-9f16-22393c33d0f0
@@ -6,7 +6,7 @@ https://github.com/user-attachments/assets/fc70b84d-00f5-4083-9f16-22393c33d0f0
 
 Link: https://mongo-diff-mongo-db-hackathon.vercel.app/
 
-**Preview how a schema change affects documents already stored in MongoDB.** mongoDiff is an Atlas-style collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. It is an independent prototype; it is not installed inside Atlas or endorsed by MongoDB.
+**Preview how a schema change affects documents already stored in MongoDB.** MongoDiff is an Atlas-style collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. It is an independent prototype; it is not installed inside Atlas or endorsed by MongoDB.
 
 ## What works today
 
@@ -68,15 +68,15 @@ For UI development, run `schema-guard-server` in one terminal and `cd frontend &
 
 The managed Hoplite preview installs Python/frontend dependencies and builds the dashboard through `.hoplite/settings.json`. It explicitly runs with `MONGODB_URI=''` for isolated demo checks, without modifying `.env`. Use the local server commands above for configured Atlas analysis.
 
-The public feature name is **mongoDiff**. Existing commands (`schema-guard`, `schema-guard-server`) and the Python package (`schema_guard`) retain their starter identifiers.
+The public feature name is **MongoDiff**. Existing commands (`schema-guard`, `schema-guard-server`) and the Python package (`schema_guard`) retain their starter identifiers.
 
 ## Frontend layout
 
-The dashboard recreates Atlas Data Explorer with **mongoDiff** as its active collection tab. It uses MongoDB's LeafyGreen components and Euclid Circular A typography. Light mode is the default, matching the Atlas reference screenshots. The header moon/sun control switches themes and remembers your choice. The earlier dark-default preference is replaced once; newly selected preferences persist.
+The dashboard recreates Atlas Data Explorer with **MongoDiff** as its active collection tab. It uses MongoDB's LeafyGreen components and Euclid Circular A typography. Light mode is the default, matching the Atlas reference screenshots. The header moon/sun control switches themes and remembers your choice. The earlier dark-default preference is replaced once; newly selected preferences persist.
 
-Only mongoDiff is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Scan controls and document issues are separated into LeafyGreen Cards. Model changes, document examples, validator preview and history open LeafyGreen Modals. Document inspection shows flat Atlas-style key/value previews.
+Only MongoDiff is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Scan controls and document issues are separated into LeafyGreen Cards. Model changes, document examples, validator preview and history open LeafyGreen Modals. Document inspection shows flat Atlas-style key/value previews.
 
-The main view shows the unique failing-document count, issue paths and per-reason old/new counts. Details show bounded bad values, examples and explanations. **AI suggestions** is explicit opt-in, enabled when a provider is configured. Candidates show their actual source and similarity score; **Use suggestion** adds a human choice to the regenerated repair preview. Nothing is applied until confirmation. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
+The main view shows the unique failing-document count, issue paths and per-reason old/new counts. Details show bounded bad values, examples and explanations. **Voyage AI suggestions** is explicit opt-in, enabled when a provider is configured. Candidates show their actual source and similarity score; **Use suggestion** adds a human choice to the regenerated repair preview. Nothing is applied until confirmation. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
 
 ## Try the complete demo
 
@@ -88,7 +88,7 @@ The main view shows the unique failing-document count, issue paths and per-reaso
 6. **Run history** opens saved reports and the model-change view. **View validator**, report export, and script download remain available.
 7. **Reset demo data** restores the seed and scans again.
 
-For the AI/video demo, configure the local provider, click **AI suggestions**, then the rating row's **Review suggestions**. Successful real provider replies are cached and labelled for retakes. Follow [the two-minute recording script](docs/DEMO_VIDEO.md) for exact clicks and narration. The local fixture demo uses Voyage embeddings; it does not run Atlas `$vectorSearch`.
+For the AI/video demo, configure the local provider, click **Voyage AI suggestions**, then the rating row's **Review suggestions**. Successful real provider replies are cached and labelled for retakes. Follow [the two-minute recording script](docs/DEMO_VIDEO.md) for exact clicks and narration. The local fixture demo uses Voyage embeddings; it does not run Atlas `$vectorSearch`.
 
 The streamlined dashboard has no JSON editors. Custom defaults/mappings remain supported by the plan API described in [docs/API.md](docs/API.md); an optional advanced decision dialog is future work. Atlas analysis and exported mechanical plans remain read-only, and the Apply button is disabled for Atlas.
 
@@ -118,7 +118,7 @@ Load `sample_mflix` in your Atlas cluster, grant read access to the target colle
 
 The scan accepts trusted server-configured Pydantic or JSON Schema sources, or the collection's current validator. Bounded, time-limited MongoDB aggregations count unique failures, classify nested/list issues and collect capped example/value summaries. Issue counts can overlap. It uses a two-pass scan and is not a snapshot guarantee if concurrent writes occur. Atlas output is real collection data and is never replaced by demo results on failure. Atlas and Atlas Vector Search still need verification on a disposable cluster.
 
-Suggestions are disabled by default. Configure `GUARD_SUGGESTIONS=voyage` with a `VOYAGE_API_KEY`, `voyage-rerank`, `atlas-vector` plus an explicitly named `GUARD_VECTOR_COLLECTION`, or `lexical` for offline matching. Click **AI suggestions** to opt in on demo or Atlas data. Voyage receives only bounded distinct bad values, allowed values and field names; IDs/examples and credentials stay server-side. See [the AI setup and safety contract](docs/API.md#optional-suggestions).
+Suggestions are disabled by default. Configure `GUARD_SUGGESTIONS=voyage` with a `VOYAGE_API_KEY`, `voyage-rerank`, `atlas-vector` plus an explicitly named `GUARD_VECTOR_COLLECTION`, or `lexical` for offline matching. Click **Voyage AI suggestions** to opt in on demo or Atlas data. Voyage receives only bounded distinct bad values, allowed values and field names; IDs/examples and credentials stay server-side. See [the AI setup and safety contract](docs/API.md#optional-suggestions).
 
 **Atlas analysis and plan generation are read-only.** Optional Atlas Vector Search writes allowed-value vectors only to a separately configured vocabulary collection and refuses to target the scanned collection; it requires explicit user opt-in. Live apply and MongoDB-backed report storage are not implemented. The validator view is a preview only. Exported scripts are review artifacts; do not run them on production.
 

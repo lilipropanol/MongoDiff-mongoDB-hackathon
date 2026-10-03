@@ -1,14 +1,14 @@
-# Atlas mongoDiff interface
+# Atlas MongoDiff interface
 
 The UI owner maintains `frontend/` and this file, and integrates contributors' pushed branches. This is an independent feature prototype, not an installed or endorsed Atlas extension.
 
-Public feature name: **mongoDiff**. Use that casing in the tab, workspace title, browser title, exports and documentation. Existing Python/CLI identifiers and database/session IDs use the starter names for compatibility.
+Public feature name: **MongoDiff**. Use that casing in the tab, workspace title, browser title, exports and documentation. Existing Python/CLI identifiers and database/session IDs use the starter names for compatibility.
 
 ## Visual source of truth
 
 - Supplied Atlas screenshot: organization/project header, icon rail, database tree, open collection strip, breadcrumbs and collection tabs.
 - [MongoDB design system](https://www.mongodb.design/) and [LeafyGreen React kit](https://github.com/mongodb/leafygreen-ui). Use published `@leafygreen-ui/*` components for buttons, logo, icons, badges, tabs, tables, typography, inputs and code.
-- One implemented collection tab: mongoDiff. Surrounding Atlas tabs are disabled context; model/validator/history views open supporting dialogs.
+- One implemented collection tab: MongoDiff. Surrounding Atlas tabs are disabled context; model/validator/history views open supporting dialogs.
 - Typography: Euclid Circular A, matching LeafyGreen's tokens. Fonts use the CDN referenced in LeafyGreen's Storybook configuration; Helvetica/Arial fallback keeps the app usable offline. Code uses system monospace.
 - Dense technical workspace: 64px header, 68px icon rail, responsive 284–432px explorer, 16px LeafyGreen base typography, 14px table body and 12px metadata, crisp 1px boundaries. No decorative gradients.
 
@@ -30,7 +30,7 @@ Light is the initial appearance, including browsers that saved the earlier dark 
 - Real report counts only; combine only mutually exclusive reasons within a field. Keep raw reasons/counts in exported reports and inspection. Identify fixtures with the Demo badge/data-source selector; omit unavailable Git/PR metadata. A validator update means a generated candidate is available, not that the installed validator was compared.
 - Strict BSON failures do not necessarily crash coercive Pydantic reads. Preserve missing versus null in inspection. Use LeafyGreen Modal and Card for document inspection: one field title, one affected count, and flat Atlas-style key/value previews. No repeated example headings or nested count sections. Render the actual plan operations and actual database/collection; never substitute illustrative scripts or conversion success counts.
 - Atlas scans stay read-only; fixture Apply requires review and confirmation. Backup/restore controls await the backend contract.
-- AI uses an explicit **AI suggestions** action. Candidates retain their actual source and similarity score. **Use suggestion** changes only the reviewed repair preview. Keep the main screen concise; collapse document examples while candidates are visible. Label successful cached provider responses for recording retakes.
+- AI uses an explicit **Voyage AI suggestions** action. Candidates retain their actual source and similarity score. **Use suggestion** changes only the reviewed repair preview. Keep the main screen concise; collapse document examples while candidates are visible. Label successful cached provider responses for recording retakes.
 - Visible focus, accessible dialogs, bounded table/code scrolling, responsive explorer and reduced-motion support. Small fades only; no invented progress percentages.
 
 See [docs/FRONTEND_PLAN.md](docs/FRONTEND_PLAN.md) and [TEAM_HANDOFF.md](TEAM_HANDOFF.md).

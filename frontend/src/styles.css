@@ -2443,3 +2443,16 @@ button {
     font-size: 12px;
   }
 }
+
+/* Loading follows the active request; no simulated progress or delays. */
+.loading-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .loading-spinner { animation: request-spin 900ms linear infinite; }
+}
+@keyframes request-spin {
+  to { transform: rotate(360deg); }
+}

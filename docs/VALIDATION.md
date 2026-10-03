@@ -15,7 +15,7 @@ The UI now renders per-path counts and new/pre-existing attribution when present
 
 ## Continuation checks — 2026-10-03
 
-The interrupted mongoDiff UI work was reviewed against the running, demo-only managed preview. The Cards and simplified document Modals were already present in the latest commit; this continuation fixes collection-filter labeling, mobile explorer focus/open-state announcements/Escape handling, and the missing browser icon. The workspace initials now match mongoDiff.
+The interrupted MongoDiff UI work was reviewed against the running, demo-only managed preview. The Cards and simplified document Modals were already present in the latest commit; this continuation fixes collection-filter labeling, mobile explorer focus/open-state announcements/Escape handling, and the missing browser icon. The workspace initials now match MongoDiff.
 
 - `.venv/bin/python -m pytest -q`: **12 passed**. New checks cover mismatched input/output aliases, matching aliases, field/model serializers (including nested models), and refusal to apply an Atlas plan through the fixture endpoint without constructing a MongoDB client.
 - `npm --prefix frontend run build`: **passed**. The existing large-bundle warning remains; no dependency upgrades were made.
@@ -28,10 +28,10 @@ Atlas integration and live writes remain outside these checks. Atlas examples ar
 
 The Atlas/LeafyGreen redesign passed `npm --prefix frontend run build` and `node frontend/scripts/smoke.mjs http://127.0.0.1:8002` against an isolated API with `MONGODB_URI=''`.
 
-- Atlas shell with one active mongoDiff tab; the other collection tabs are disabled context.
+- Atlas shell with one active MongoDiff tab; the other collection tabs are disabled context.
 - Actual fixture counts: 7 failures → reviewed repair → fresh verification at 0; reset restores 7.
 - One scan-result sentence replaces the status cards. The four-column LeafyGreen table has exactly three demo issue rows, with real counts 4/2/2; missing/null remain separate inside grouped inspection. No issue search or JSON forms on the main page. Collection filtering remains available.
-- mongoDiff naming throughout the interface. Scan controls and the issue table are separate LeafyGreen Cards; details and repair confirmation use LeafyGreen Modal. Document examples are flat key/value Cards, with missing/null distinctions preserved. Model changes, proposed validator, run history, and document details open supporting modals. LeafyGreen Select switches the source; LeafyGreen Banner presents scan errors and verified results.
+- MongoDiff naming throughout the interface. Scan controls and the issue table are separate LeafyGreen Cards; details and repair confirmation use LeafyGreen Modal. Document examples are flat key/value Cards, with missing/null distinctions preserved. Model changes, proposed validator, run history, and document details open supporting modals. LeafyGreen Select switches the source; LeafyGreen Banner presents scan errors and verified results.
 - Default light appearance, including an old saved dark preference; optional dark mode and new theme preferences survive reload.
 - The downloaded/displayed script matches every API-plan filter/update, checked by a dry execution against a recording database stub. Confirmation cancellation and the unconfigured Atlas error work.
 - Axe reports no violations in the checked desktop themes/dialogs, repair confirmation, repaired report, Atlas error, and light workspace/validator/history states at 375, 768 and 1280px. The simplified summary and LeafyGreen table retain the approved Atlas palette and shell. This is not an audit of every possible state.

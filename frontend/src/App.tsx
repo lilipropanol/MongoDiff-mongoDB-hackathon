@@ -146,7 +146,9 @@ export function App() {
               </Badge>
               <Body className="guard-description">
                 {busy ? (
-                  "Scanning collection…"
+                  suggestionsOptIn && suggestionMode !== "lexical"
+                    ? "Voyage AI is finding suggestions…"
+                    : "Scanning collection…"
                 ) : report ? (
                   <>
                     Scan complete for collection{" "}
@@ -172,7 +174,7 @@ export function App() {
                 onClick={() =>
                   report &&
                   download(
-                    `mongodiff-${report.id}.json`,
+                    `MongoDiff-${report.id}.json`,
                     JSON.stringify(report, null, 2),
                   )
                 }
@@ -232,17 +234,23 @@ export function App() {
               )}
               <Button
                 leftGlyph={<Icon aria-hidden glyph="Sparkle" />}
+                isLoading={busy && suggestionsOptIn}
+                loadingText={suggestionMode === "lexical" ? "Matching values…" : "Finding Voyage suggestions…"}
+                loadingIndicator={<Icon aria-hidden glyph="Refresh" className="loading-spinner" />}
                 disabled={working || !config?.suggestions_configured}
                 title={config?.suggestions_configured
                   ? (suggestionMode === "lexical" ? "Opt in to offline value matching" : "Opt in to sharing bounded values and field names with Voyage AI")
                   : "Configure a suggestion provider on the server"}
                 onClick={() => void run(source, false, true)}
               >
-                {suggestionMode === "lexical" ? "Value suggestions" : "AI suggestions"}
+                {suggestionMode === "lexical" ? "Value suggestions" : "Voyage AI suggestions"}
               </Button>
               <Button
                 variant="primary"
                 className="guard-primary"
+                isLoading={busy && !suggestionsOptIn}
+                loadingText="Analyzing…"
+                loadingIndicator={<Icon aria-hidden glyph="Refresh" className="loading-spinner" />}
                 leftGlyph={<Icon aria-hidden glyph="Play" />}
                 onClick={() => void run(source)}
                 disabled={working}
@@ -280,7 +288,12 @@ export function App() {
           >
             <div className="skeleton skeleton-summary" />
             <div className="skeleton skeleton-table" />
-            <p>Scanning documents against the proposed schema…</p>
+            <p className="loading-caption">
+              <Icon aria-hidden glyph="Refresh" className="loading-spinner" />
+              {suggestionsOptIn && suggestionMode !== "lexical"
+                ? "Voyage AI is matching values. Suggestions will be ready for review shortly."
+                : "Scanning documents against the proposed schema…"}
+            </p>
           </div>
         ) : report ? (
           <div className="view-enter">
