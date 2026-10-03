@@ -60,11 +60,12 @@ export function RootCauseTable({
       >
         <TableHead>
           <HeaderRow>
-            <HeaderCell>Field</HeaderCell>
+            <HeaderCell>Path</HeaderCell>
             <HeaderCell>Issue</HeaderCell>
             <HeaderCell className="count-column" align="right">
               Documents
             </HeaderCell>
+            <HeaderCell className="change-counts">New / existing</HeaderCell>
             <HeaderCell>
               <span className="sr-only">Details</span>
             </HeaderCell>
@@ -72,19 +73,24 @@ export function RootCauseTable({
         </TableHead>
         <TableBody>
           {issues.map((issue) => (
-            <Row key={`${issue.field}-${issue.reason}`}>
+            <Row key={`${issue.path}-${issue.reason}`}>
               <Cell>
-                <code className="field-name">{issue.field}</code>
+                <code className="field-name">{issue.path}</code>
               </Cell>
               <Cell>{issue.label}</Cell>
               <Cell className="count-column" align="right">
                 <strong>{number(issue.count)}</strong>
               </Cell>
+              <Cell className="change-counts">
+                {issue.count_newly === undefined
+                  ? "—"
+                  : `${number(issue.count_newly)} / ${number(issue.count_preexisting)}`}
+              </Cell>
               <Cell align="right">
                 <Button
                   size="xsmall"
                   onClick={() => inspect(issue)}
-                  aria-label={`Details for ${issue.field}: ${issue.label}`}
+                  aria-label={`Details for ${issue.path}: ${issue.label}`}
                 >
                   Details
                 </Button>
@@ -101,6 +107,7 @@ export function RootCauseTable({
             : "No failing documents."}
         </div>
       )}
+      {issues.length > 0 && <p className="issues-footnote">Issue counts may overlap; the scan total counts each document once.</p>}
       {report.unclassified > 0 && (
         <div className="table-empty">
           {number(report.unclassified)} documents need further review.
@@ -126,6 +133,35 @@ export function ReasonDetails({ issue }: { issue: Issue }) {
       <Body className="inspection-summary">
         {number(issue.count)} documents need attention.
       </Body>
+      {(issue.count_newly !== undefined || issue.count_preexisting !== undefined) && (
+        <div className="drift-breakdown" aria-label="New versus pre-existing issues">
+          <span><strong>{number(issue.count_newly)}</strong> newly affected</span>
+          <span><strong>{number(issue.count_preexisting)}</strong> already failing</span>
+        </div>
+      )}
+      {issue.explanations.map((explanation) => (
+        <Body className="issue-explanation" key={explanation}>{explanation}</Body>
+      ))}
+      {issue.distinctValues.length > 0 && (
+        <div className="bad-values" aria-label="Observed values">
+          <h3>Observed values</h3>
+          {issue.distinctValues.map((item, index) => (
+            <div className="bad-value-row" key={`${item.bson_type}-${JSON.stringify(item.value)}-${index}`}>
+              <code>{JSON.stringify(item.value)}</code>
+              <span>{number(item.count)} docs</span>
+              {item.suggestions?.map((suggestion) => (
+                <span className="suggestion-chip" key={`${suggestion.target}-${suggestion.source}`}>
+                  Suggested: <code>{suggestion.target}</code>
+                  <span>{Math.round(suggestion.score * 100)}% · {suggestion.source}</span>
+                </span>
+              ))}
+            </div>
+          ))}
+          {issue.parts.some((part) => part.distinct_values_limited) && (
+            <Body className="inspection-note">Additional values are omitted by the scan limit.</Body>
+          )}
+        </div>
+      )}
       {examples.length > 0 && examples.length < issue.count && (
         <Body className="inspection-note">
           Showing {number(examples.length)} examples.

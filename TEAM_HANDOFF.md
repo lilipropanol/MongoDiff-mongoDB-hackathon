@@ -1,21 +1,30 @@
 # mongoDiff — three-person handoff
 
+## Current integrated state (2026-10-03)
+
+The UI owner has merged `engine/atlas-analysis` and the latest UI branch into `feature/schema-guard-atlas-ui`. The three build roles remain UI, schema/impact engine, and fixes/backend; integration is coordinated by the UI owner after branch pushes, not a separate role.
+
+- **Integrated:** language-neutral JSON Schema/model input, collection-validator input, deterministic breaking/compatible diff, bounded two-pass impact analysis, nested/list paths, distinct bad values, per-reason old/new counts, explanations, default warnings, schema-version analysis, measurement command, and optional lexical/Voyage/Atlas Vector Search suggestions.
+- **UI integration:** issue inspection shows nested paths, counts, explanations, bounded values and advisory candidates. Warnings and schema-version summaries appear when supplied by the report. The configured provider is opt-in per Atlas scan.
+- **Safety:** Atlas scan and plan remain read-only. Fixture apply/restore affects only in-memory demo data. Atlas Vector Search can write only to its explicitly configured separate vocabulary collection. Suggestions never apply repairs.
+- **Still to verify:** run the combined checks; measure against the event Atlas cluster with the measurement command; verify Voyage and Vector Search credentials on a disposable namespace. Do not quote Atlas findings until measured.
+
 ## Starting point
 
 **The starter is built; the full live Atlas workflow is not.** The dashboard, API, CLI, translated schemas, diff, fix plans, validator export, and local JSON history already exist. Build on these modules rather than recreating them. It is a feature prototype displayed in an Atlas-like shell, not an actual Atlas extension.
 
-The UI now uses the actual LeafyGreen kit in an Atlas collection shell: dark/light themes, one compact scan result, a four-column LeafyGreen table with three consolidated demo issue rows, document inspection, a script-only remediation panel, and model/validator/history dialogs. See [frontend plan](docs/FRONTEND_PLAN.md), [brand guidance](brand.md), and [current checks](docs/VALIDATION.md). This layout is built; the remaining UI work is an optional advanced decision dialog and new backend integration.
+The UI uses the actual LeafyGreen kit in an Atlas collection shell: light/dark themes, compact scan output, nested issue paths, new/pre-existing counts, value and example inspection, a script-only remediation panel, and model/validator/history dialogs. AI candidates are opt-in and advisory. See [frontend plan](docs/FRONTEND_PLAN.md), [brand guidance](brand.md), and [current checks](docs/VALIDATION.md).
 
 The verified fixture demo works without credentials: 12 documents → 7 failures → reviewed defaults/mappings → 0 failures. Defaults plus integer-text conversion, without value mappings, leave 2 documents for review. Counts are calculated from fixture documents.
 
 | Remaining deliverable | Current gap | Owner |
 | --- | --- | --- |
-| Verified Atlas impact report | Live query path exists but has not been checked on real MongoDB/Atlas | Schema/impact |
-| Optional advanced decisions | Main UI uses reviewed demo presets; custom decisions are API-only | You — UI |
+| Verified Atlas impact report | Engine has real-MongoDB integration coverage; measure the event Atlas collection before quoting results | Schema/impact + UI |
+| Optional advanced decisions | Custom decisions are supported by API; streamlined dashboard has no custom mapping editor | You — UI |
 | Reviewed live repair with backup, rescan and restore | Apply only changes in-memory fixtures; durable backup/restore does not exist | Fixes/backend |
 | Validator rollout | Only the command preview/export exists | Fixes/backend |
 | MongoDB-backed history | Reports currently live in local JSON files | Fixes/backend |
-| Working combined app | Contributors develop and push separate branches | You — UI, after all branches are pushed |
+| Working combined app | Branches are merged; combined checks and final Atlas configuration still need verification | You — UI |
 
 Live query verification and the UI decision flow come first. If you implement live writes, complete backup and restore before offering live Apply. Validator rollout and MongoDB history follow that workflow. AI, PR automation and schema versioning are stretch work.
 
@@ -89,15 +98,15 @@ How the UI owner can try it: pull the integration branch, merge the UI branch in
 - [x] Check the current layout, dialogs, collection filter, confirmation cancellation, error recovery and mobile overflow; repeat these checks after further UI changes.
 - [ ] After contributors push, merge their branches, resolve cross-component mismatches, and verify the full app and repeatable demo.
 
-### AI suggestion UI (opt-in follow-up)
+### AI suggestion UI (integrated; opt-in)
 
-- Keep suggestions visibly advisory. In Impact, show each candidate beside its affected distinct value with the target, score, and source; show rename candidates alongside the relevant model change.
-- Let a user select a candidate to populate the explicit mapping decision in Fixes. The user must review and generate the plan; never auto-select a mapping or apply a repair.
-- Show whether suggestions are disabled, using Voyage, or using lexical fallback. If the Voyage request fails, keep the scan usable and label the fallback rather than presenting it as an AI result.
-- Preserve opt-in and disclose that bounded bad values, allowed values, and field names are sent to MongoDB AI. Do not send examples, document IDs, full documents, or connection details.
-- Coordinate the contract first: `build_report` must preserve `scan.suggestions`, and `frontend/src/types.ts` must type `distinct_values[].suggestions`, `changes[].rename_candidates`, and the scan status before the views can render them.
+- [x] Keep candidates visibly advisory. Issue details show suggestions beside distinct values with target, score and source; rename candidates appear beside model changes.
+- [ ] Selecting a candidate to prefill an editable mapping decision remains future work. Never auto-select a mapping or apply a repair.
+- [x] The report records provider/fallback status; failed Voyage requests preserve the scan and label lexical fallback.
+- [x] Preserve per-scan opt-in and disclose that bounded bad values, allowed values and field names may be sent to the configured provider. Do not send examples, document IDs, whole documents or connection details.
+- [x] The report/API types carry suggestion status, per-value suggestions and rename candidates.
 
-Acceptance: candidates are available only where applicable, a selected candidate becomes an explicit human decision, status and fallback are clear, and no suggestion changes counts or executes a write.
+Acceptance: candidates are available only where applicable, remain advisory, status and fallback are clear, and no suggestion changes counts or executes a write. Editable mapping decisions from selected candidates remain open.
 
 ### Acceptance
 
@@ -172,7 +181,7 @@ A reviewed repair on a disposable collection first creates a complete backup, re
 | Next 40 min | After branches are pushed: merge, connect UI/backend, run combined checks and responsive/a11y pass | Push checked branch with handoff; help resolve engine issues | Push checked branch with handoff; help resolve backend issues |
 | Remaining time | Everyone: README, resettable demo, pitch rehearsal and submission |
 
-If time is tight, aim for a verified live impact report plus exported fixes and the working fixture repair loop. Only describe live execution as built after the backup/repair/restore flow passes on a disposable MongoDB collection. AI suggestions, schema versioning, GitHub PR comments, arbitrary model uploads, advanced type support, deployment, and installation inside the real Atlas dashboard are stretch tasks.
+If time is tight, aim for measured Atlas impact plus exported fixes and the working fixture repair loop. Only describe live execution as built after the backup/repair/restore flow passes on a disposable MongoDB collection. GitHub PR comments, arbitrary model uploads, full advanced type support, deployment, and installation inside the real Atlas dashboard remain stretch work.
 
 ## Demo narration
 

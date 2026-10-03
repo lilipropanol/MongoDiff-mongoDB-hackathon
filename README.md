@@ -1,6 +1,6 @@
 # MongoDB Atlas mongoDiff
 
-**Preview how a Pydantic model change affects documents already stored in MongoDB.** An Atlas collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. Independent feature prototype; it is not installed inside Atlas or endorsed by MongoDB.
+**Preview how a schema change affects documents already stored in MongoDB.** mongoDiff is an Atlas-style collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. It is an independent prototype; it is not installed inside Atlas or endorsed by MongoDB.
 
 ## What works today
 
@@ -8,21 +8,24 @@
 
 | Feature | Current state |
 | --- | --- |
-| Dashboard, API, CLI, model translation and diff | Implemented; focused checks and frontend build passed |
+| Atlas-style LeafyGreen dashboard, API, CLI, translation and deterministic diff | Implemented |
 | Demo scan → reviewed repair → rescan | Verified on 12 synthetic documents: 7 failures → 0 |
-| Atlas collection analysis | Implemented and read-only; not yet verified against a real MongoDB server or Atlas cluster |
+| Schema input | Pydantic v2, JSON Schema exported from any language, or current collection validator |
+| Atlas collection analysis | Implemented read-only; unique failures, nested/list paths, bounded bad values, old/new drift and explanations |
+| Diff and schema versioning | Breaking/compatible labels, default warnings, per-version counts and bump guidance |
+| Optional suggestions | Opt-in lexical, Voyage embeddings/reranking or Atlas Vector Search; advisory only |
 | Default, conversion and mapping plans | Generated for human review; Atlas plans can be exported |
 | Apply button | Updates isolated in-memory demo fixtures only |
 | Validator | Generated and downloadable; never applied by the app |
 | Run history | Local JSON files; not stored in MongoDB yet |
 | Live apply, durable backups and restore | Not implemented |
-| AI suggestions, PR automation and schema versioning | Not implemented; stretch work |
+| Live Atlas repairs, PR automation and real-Atlas measurement | Not implemented/verified |
 
 ## What the three people finish
 
 - **You — UI:** keep the demo concise, connect the reviewed live-repair contract when available, then merge everyone's pushed branches and verify the combined app.
-- **Schema/impact:** verify queries and actual counts on Atlas; improve nested explanations and missing-default warnings.
-- **Fixes/backend:** reviewed live execution with backup, verification and restore; then validator rollout and MongoDB history.
+- **Schema/impact:** run the measurement tool and verify query behavior/counts on the team's Atlas cluster; review JSON Schema edge cases.
+- **Fixes/backend:** reviewed live execution with backup, verification and restore; validator application and MongoDB-backed report history.
 
 Detailed priorities, ownership, agent prompts, and completion criteria are in [TEAM_HANDOFF.md](TEAM_HANDOFF.md). Check results and gaps are in [docs/VALIDATION.md](docs/VALIDATION.md).
 
@@ -67,7 +70,7 @@ The dashboard recreates Atlas Data Explorer with **mongoDiff** as its active col
 
 Only mongoDiff is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Scan controls and document issues are separated into LeafyGreen Cards. Model changes, document examples, validator preview and history open LeafyGreen Modals. Document inspection shows flat Atlas-style key/value previews.
 
-The main view shows one scan result, a LeafyGreen table with **Field / Issue / Documents / Details**, the generated operations, and **Apply Fix & Rescan**. Counts always come from reports. **View validator** opens the generated candidate; the API does not compare the installed validator or provide Git/PR linkage. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
+The main view shows the unique failing-document count, issue paths and per-reason old/new counts. Details show bounded bad values, examples and plain-language explanations. Optional warnings surface absent defaults; version analysis summarizes stored versions. The opt-in control appears only when a server-side suggestion provider is configured; candidates are advisory and never selected or applied automatically. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
 
 ## Try the complete demo
 
@@ -93,13 +96,23 @@ MONGODB_DATABASE=sample_mflix
 MONGODB_COLLECTION=movies
 GUARD_OLD_MODEL=examples/models_old.py:Movie
 GUARD_NEW_MODEL=examples/models_new.py:Movie
+# To compare against the collection's installed $jsonSchema validator instead:
+# GUARD_OLD_MODEL=collection-validator
+# Optional: configure Voyage AI or Atlas Vector Search (off by default)
+# GUARD_SUGGESTIONS=voyage
+# VOYAGE_API_KEY=...
+# Atlas Vector Search additionally requires an isolated namespace:
+# GUARD_SUGGESTIONS=atlas-vector
+# GUARD_VECTOR_COLLECTION=schema_guard.suggestion_vectors
 ```
 
 Load `sample_mflix` in your Atlas cluster, grant read access to the target collection, and allow your machine's IP in Atlas. Restart the server, select **MongoDB Atlas**, and **Run analysis**. Expect counts determined by your collection, not the fixture's 7 failures. Model paths are trusted server configuration; the API does not accept uploaded Python code or paths.
 
-The scan uses MongoDB `$jsonSchema` and `$facet` for total counts, old-schema violations, newly affected documents, issue reasons, and bounded examples. Issue counts can overlap. It scans the full collection with a 30-second server limit; this is not a snapshot guarantee if concurrent writes occur. Atlas output is real collection data and is never replaced by demo results on failure.
+The scan accepts trusted server-configured Pydantic or JSON Schema sources, or the collection's current validator. Bounded, time-limited MongoDB aggregations count unique failures, classify nested/list issues and collect capped example/value summaries. Issue counts can overlap. It uses a two-pass scan and is not a snapshot guarantee if concurrent writes occur. Atlas output is real collection data and is never replaced by demo results on failure. Atlas and Atlas Vector Search still need verification on a disposable cluster.
 
-**Atlas analysis and plan generation are read-only.** Live apply, backup/restore, validator application, and MongoDB-backed report storage are pending tasks. Exported scripts are review artifacts; do not run them on production until those paths are implemented and checked.
+Suggestions are disabled by default. Configure `GUARD_SUGGESTIONS=voyage` with a `VOYAGE_API_KEY`, `voyage-rerank`, `atlas-vector` plus an explicitly named `GUARD_VECTOR_COLLECTION`, or `lexical` for offline matching. Then choose **Include suggestions** before an Atlas scan. Voyage receives only bounded distinct bad values, allowed values and field names; IDs/examples and credentials stay server-side. See [the AI setup and safety contract](docs/API.md#optional-suggestions).
+
+**Atlas analysis and plan generation are read-only.** Optional Atlas Vector Search writes allowed-value vectors only to a separately configured vocabulary collection and refuses to target the scanned collection; it requires explicit user opt-in. Live apply and MongoDB-backed report storage are not implemented. The validator view is a preview only. Exported scripts are review artifacts; do not run them on production.
 
 ## CLI
 
@@ -140,14 +153,14 @@ Core checks cover required-vs-nullable behavior, aliases, unsupported constraint
 
 ## Supported subset and known limits
 
-- Pydantic v2: `str`, `int`, `float`, `bool`, `datetime`, `list[T]`, `Optional[T]`, `Literal[...]`, nested models. Unsupported types and field constraints are reported instead of guessed.
+- Pydantic v2 subset plus standard JSON Schema inputs, including nested objects and one array level. Unsupported types and keywords are reported instead of guessed.
 - `Optional[T]` without a default is required but nullable. Defaults make a field optional; they are not silently persisted.
 - Ints accept BSON `int` and `long`. Floats accept BSON numeric types; Pydantic can still have different runtime coercion behavior.
 - Aliases are used as stored field names. Input and serialization aliases must agree. Complex validation aliases, dotted/dollar field names, custom validators/serializers, and `extra='forbid'` are unsupported and rejected.
-- Nested schema validation works; nested changes are grouped under the root field rather than individual paths. Recursive models are unsupported.
+- Nested issue paths and array-element locations are reported. Recursive Pydantic models, nested arrays-of-arrays, and JSON Schema `additionalProperties:false` are unsupported.
 - Repair candidates cover explicit defaults, string-to-integer conversions, and string-keyed explicit value mappings. Numeric-key mappings, inferred renames, and removals need further design.
 - Other Pydantic configuration is not fully audited. The translator covers the listed stored-schema subset, not every behavior of an application model.
-- Constraint translation, default warnings, CI exit policies, Beanie-specific types, durable backups, live repairs, schema versioning, authentication, retention limits, and a production deployment remain unfinished.
+- Full Pydantic constraint/config translation, Beanie-specific types, durable live backups/repairs, authentication, retention limits, and a production deployment remain unfinished. Schema-version analysis is informational; automatic version migration is not implemented.
 - This local prototype binds to `127.0.0.1`. Session identifiers are isolation conveniences, not authentication. Add authentication and authorization before deploying it for a team.
 
 ## Technical references

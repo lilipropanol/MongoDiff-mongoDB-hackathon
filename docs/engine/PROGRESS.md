@@ -1,6 +1,8 @@
 # Person 2 (schema & impact engine): progress log
 
-Branch: `engine/atlas-analysis` · Last updated: 2026-10-03 · Nothing is committed or pushed yet; you review first.
+Source branch: `engine/atlas-analysis` · Last updated: 2026-10-03. Its commits are integrated into `feature/schema-guard-atlas-ui`; this file preserves the engine contributor's implementation notes and original checks.
+
+> **Status note:** sections below describe the engine branch before integration. Some handoff checklists are historical. The final app wiring and current outstanding work are in [TEAM_HANDOFF.md](../../TEAM_HANDOFF.md) and [VALIDATION.md](../VALIDATION.md).
 
 ## Where my code is
 
@@ -13,7 +15,7 @@ Branch: `engine/atlas-analysis` · Last updated: 2026-10-03 · Nothing is commit
 
 Outside these folders I only changed four **connector** files: `schema_guard/{translator,diff,impact,models}.py`. They contain only re-exports from `schema_guard/engine/`, so `server.py`, `cli.py`, `demo.py` and `fixes.py` (Person 3) keep working unchanged.
 
-**I made no edits to Person 1's or Person 3's files.**
+Before integration, the engine contributor made no edits to Person 1's or Person 3's files.
 
 ## Done
 

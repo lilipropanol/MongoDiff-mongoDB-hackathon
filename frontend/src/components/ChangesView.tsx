@@ -13,6 +13,7 @@ const labels: Record<string, string> = {
   added: "Field added",
   removed: "Field removed",
   became_required: "Now required",
+  became_optional: "No longer required",
   type_or_constraint_changed: "Type or constraint changed",
 };
 export function ChangesView({ report }: { report: Report }) {
@@ -25,7 +26,7 @@ export function ChangesView({ report }: { report: Report }) {
             Derived from the translated schemas using deterministic comparison.
           </p>
         </div>
-        <span className="badge neutral">Pydantic v2</span>
+        <span className="badge neutral">JSON Schema comparison</span>
       </div>
       <div
         className="change-table"
@@ -35,6 +36,7 @@ export function ChangesView({ report }: { report: Report }) {
         <div className="change-table-head">
           <span>Field</span>
           <span>Change</span>
+          <span>Compatibility</span>
           <span>Stored shape</span>
         </div>
         {report.changes.map((change, i) => (
@@ -44,11 +46,23 @@ export function ChangesView({ report }: { report: Report }) {
               {labels[change.kind] || change.kind}
               {change.required ? " · required" : ""}
             </span>
+            {change.compatibility && (
+              <span className={`badge ${change.compatibility === "breaking" ? "warning" : "success"}`}>
+                <span title={change.compatibility_reason}>{change.compatibility}</span>
+              </span>
+            )}
             <div>
               <code>{describe(change.old)}</code>
               <Icon aria-hidden glyph="ArrowRight" size={14} />
               <code>{describe(change.new)}</code>
             </div>
+            {change.rename_candidates?.length ? (
+              <div className="rename-suggestions">
+                Possible rename: {change.rename_candidates.map((candidate) => (
+                  <span key={candidate.to}><code>{candidate.to}</code> · {Math.round(candidate.score * 100)}% suggestion</span>
+                ))}
+              </div>
+            ) : null}
           </div>
         ))}
         {!report.changes.length && (
@@ -58,7 +72,7 @@ export function ChangesView({ report }: { report: Report }) {
       <div className="code-grid">
         <CodeBlock
           label="Current model"
-          filename="model_old.py"
+          filename={report.model_sources?.old.trimStart().startsWith("{") ? "model_old.schema.json" : "model_old.py"}
           code={
             report.model_sources?.old ||
             JSON.stringify(report.old_schema, null, 2)
@@ -66,7 +80,7 @@ export function ChangesView({ report }: { report: Report }) {
         />
         <CodeBlock
           label="Proposed model"
-          filename="model_new.py"
+          filename={report.model_sources?.new.trimStart().startsWith("{") ? "model_new.schema.json" : "model_new.py"}
           code={
             report.model_sources?.new ||
             JSON.stringify(report.new_schema, null, 2)

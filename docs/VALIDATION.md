@@ -2,6 +2,17 @@
 
 These are checks completed on the starter, not proof that future branch changes or a real Atlas deployment work. Documentation-only edits do not change those results. Recheck affected behavior after implementation changes and run the combined checks after merging.
 
+## Combined branch integration — 2026-10-03
+
+Merged `origin/feature/schema-guard-atlas-ui` and `origin/engine/atlas-analysis` into `feature/schema-guard-atlas-ui`, then connected the additive engine report fields and per-scan suggestion opt-in to the UI.
+
+- `.venv/bin/python -m pytest -q`: **171 passed, 51 skipped**. The skipped real-Mongo/Atlas tests require integration services or credentials not enabled in this environment. The suite does not replace a measurement against the event's Atlas collection.
+- `npm --prefix frontend run build`: **passed**. Vite still reports the existing large JavaScript chunk warning (~1.33 MB, 381 KB gzip).
+- `node frontend/scripts/smoke.mjs http://127.0.0.1:8002`: **passed** against the isolated API (`MONGODB_URI=''`): demo repair 7 → 0, reset, inspection, support dialogs, themes, accessibility, and 375/768/1280px layouts.
+- `GET /api/config` on that isolated server confirmed Atlas and suggestions are not configured; no credentials were used.
+
+The UI now renders per-path counts and new/pre-existing attribution when present, bounded bad values, explanations, optional-default warnings, schema-version summaries, breaking/compatible labels, and opt-in suggestion status/results. `GUARD_OLD_MODEL=collection-validator` uses the installed collection `$jsonSchema` as the old schema. No live Atlas scan or Voyage/Atlas Vector Search request was made, so provider results and live counts remain unverified.
+
 ## Continuation checks — 2026-10-03
 
 The interrupted mongoDiff UI work was reviewed against the running, demo-only managed preview. The Cards and simplified document Modals were already present in the latest commit; this continuation fixes collection-filter labeling, mobile explorer focus/open-state announcements/Escape handling, and the missing browser icon. The workspace initials now match mongoDiff.
@@ -66,7 +77,7 @@ This script exercises fixture repairs, saves session reports under `reports/`, a
 
 - **Implemented but not verified on real MongoDB:** Atlas connectivity, permissions, query semantics, and live `sample_mflix` counts. Schema/impact owns this check.
 - MongoDB BSON values and cases not present in the fixture adapter.
-- Full nested path explanations and unsupported Pydantic configuration/serialization behavior.
+- Nested array-inside-array value summaries and unsupported Pydantic configuration/serialization behavior.
 - **Not implemented:** durable backup, live execution, restore, existing-validator preservation, and validator rollout. Fixes/backend owns these paths.
 - **Not implemented:** MongoDB report storage and CI gate policies (fixes/backend); authentication, live plan expiry, retention/limits, and deployment remain additional work.
 

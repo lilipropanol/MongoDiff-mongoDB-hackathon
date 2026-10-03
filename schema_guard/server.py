@@ -21,7 +21,7 @@ from .demo import SEED, analyze_demo, apply_demo_plan
 from .diff import compare
 from .fixes import make_plan
 from .impact import analyze_collection
-from .models import load_model
+from .models import load_collection_validator, load_model
 from .report import build_report
 from .translator import SchemaTranslator
 
@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 class RunRequest(BaseModel):
     session_id: UUID
     source: str = Field(default="demo", pattern="^(demo|atlas)$")
+    suggestions: bool = False
 
 
 class PlanRequest(BaseModel):
@@ -65,7 +66,9 @@ def schemas(source):
     old_spec = os.getenv("GUARD_OLD_MODEL", str(ROOT / "examples/models_old.py") + ":Movie") if source == "atlas" else str(ROOT / "examples/models_old.py") + ":Movie"
     new_spec = os.getenv("GUARD_NEW_MODEL", str(ROOT / "examples/models_new.py") + ":Movie") if source == "atlas" else str(ROOT / "examples/models_new.py") + ":Movie"
     translator = SchemaTranslator()
-    old, new = translator.translate(load_model(old_spec)), translator.translate(load_model(new_spec))
+    use_current_validator = source == "atlas" and old_spec in ("collection-validator", "current-validator")
+    old = None if use_current_validator else translator.translate(load_model(old_spec))
+    new = translator.translate(load_model(new_spec))
     return old, new, old_spec, new_spec
 
 
@@ -97,9 +100,9 @@ def ensure_demo_session(session_id):
     return state
 
 
-def run_analysis(session_id, source):
+def run_analysis(session_id, source, suggestions=False):
     old, new, old_spec, new_spec = schemas(source)
-    changes = compare(old, new)
+    changes = compare(old, new) if old is not None else []
     if source == "demo":
         session = ensure_demo_session(session_id)
         impact = analyze_demo(session["documents"], old, new)
@@ -110,9 +113,21 @@ def run_analysis(session_id, source):
             raise HTTPException(409, "Atlas is not configured. Set MONGODB_URI in the server .env and restart it.")
         database, collection = os.getenv("MONGODB_DATABASE", "sample_mflix"), os.getenv("MONGODB_COLLECTION", "movies")
         with MongoClient(uri, serverSelectionTimeoutMS=5000, connectTimeoutMS=5000, socketTimeoutMS=35000) as client:
-            impact = analyze_collection(client[database][collection], new, changes, old_schema=old)
+            target = client[database][collection]
+            if old is None:
+                old_document, _ = load_collection_validator(target)
+                if old_document is None:
+                    raise HTTPException(409, "The collection has no supported $jsonSchema validator to use as the current model.")
+                old = SchemaTranslator().translate(old_document)
+                changes = compare(old, new)
+            impact = analyze_collection(client[database][collection], new, changes, old_schema=old,
+                                        suggestions=suggestions)
     report = build_report(impact, changes, old, new, database, collection, source, str(session_id))
-    report["model_sources"] = {"old": Path(old_spec.rsplit(":", 1)[0]).read_text(), "new": Path(new_spec.rsplit(":", 1)[0]).read_text()}
+    report["model_sources"] = {
+        "old": ("Current collection $jsonSchema validator (loaded read-only)." if old_spec in ("collection-validator", "current-validator")
+                else Path(old_spec.rsplit(":", 1)[0]).read_text()),
+        "new": Path(new_spec.rsplit(":", 1)[0]).read_text(),
+    }
     saved = save_report(report)
     if source == "demo":
         session["latest_run"] = saved["id"]
@@ -126,8 +141,13 @@ def health():
 
 @app.get("/api/config")
 def config():
+    suggestion_mode = (os.getenv("GUARD_SUGGESTIONS") or "").strip().lower()
+    supported_suggestions = {"lexical", "voyage", "voyage-rerank", "atlas-vector"}
     return {"atlas_configured": bool(os.getenv("MONGODB_URI")), "database": os.getenv("MONGODB_DATABASE", "sample_mflix"),
-            "collection": os.getenv("MONGODB_COLLECTION", "movies"), "live_apply_available": False}
+            "collection": os.getenv("MONGODB_COLLECTION", "movies"), "live_apply_available": False,
+            "suggestions_configured": suggestion_mode in supported_suggestions,
+            "suggestion_mode": suggestion_mode if suggestion_mode in supported_suggestions else None,
+            "suggestion_key_configured": bool(os.getenv("VOYAGE_API_KEY"))}
 
 
 @app.post("/api/analyze")
@@ -136,7 +156,7 @@ def analyze(request: RunRequest):
         if request.source == "demo":
             with lock:
                 return run_analysis(request.session_id, request.source)
-        return run_analysis(request.session_id, request.source)
+        return run_analysis(request.session_id, request.source, request.suggestions)
     except PyMongoError:
         logger.warning("MongoDB scan failed (connection, permissions, query, or scan timeout)")
         raise HTTPException(502, "MongoDB scan failed. Check connectivity, collection permissions, and server logs. The scan has a 30-second limit.")

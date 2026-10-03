@@ -1,4 +1,4 @@
-import type { Operation, Plan, Reason, Report, Rule } from "./types";
+import type { DistinctValue, Operation, Plan, Reason, Report, Rule, Suggestion } from "./types";
 
 export function modelName(report: Report) {
   if (report.source === "demo") return "Movie";
@@ -18,10 +18,14 @@ export function ruleLabel(rule?: Rule) {
 }
 
 export interface Issue extends Reason {
+  path: string;
   label: string;
   action: string;
   variant: "yellow" | "blue" | "red";
   parts: Reason[];
+  distinctValues: DistinctValue[];
+  explanations: string[];
+  suggestions: Suggestion[];
 }
 
 function combine(
@@ -35,26 +39,57 @@ function combine(
       part.examples.map((example) => [String(example._id), example] as const),
     ),
   );
+  const distinctValues = new Map<string, DistinctValue>();
+  for (const part of parts) {
+    for (const item of part.distinct_values || []) {
+      const key = `${item.bson_type}:${JSON.stringify(item.value)}`;
+      const existing = distinctValues.get(key);
+      if (!existing) distinctValues.set(key, { ...item });
+      else existing.count = Math.max(existing.count, item.count);
+    }
+  }
   return {
     field: parts[0].field,
+    path: parts[0].path || parts[0].field,
     reason: parts.map((part) => part.reason).join(" / "),
     count: parts.reduce((total, part) => total + part.count, 0),
+    ...(parts.some((part) => part.count_newly !== undefined)
+      ? {
+          count_newly: parts.reduce((total, part) => total + (part.count_newly || 0), 0),
+          count_preexisting: parts.reduce((total, part) => total + (part.count_preexisting || 0), 0),
+        }
+      : {}),
     example_ids: [...new Set(parts.flatMap((part) => part.example_ids))],
     examples: [...examples.values()],
     label,
     action,
     variant,
     parts,
+    distinctValues: [...distinctValues.values()],
+    explanations: [...new Set(parts.map((part) => part.explanation).filter((value): value is string => Boolean(value)))],
+    suggestions: [],
   };
+}
+
+function ruleAtPath(schema: Rule, path: string): Rule | undefined {
+  let rule: Rule | undefined = schema;
+  for (const piece of path.split(".")) {
+    const arrayDepth = (piece.match(/\[\]/g) || []).length;
+    rule = rule?.properties?.[piece.replaceAll("[]", "")];
+    for (let i = 0; i < arrayDepth; i++) rule = rule?.items;
+    if (!rule) return undefined;
+  }
+  return rule;
 }
 
 /** Only combine mutually exclusive reasons for the same field. */
 export function summarizeIssues(report: Report): Issue[] {
-  const fields = [...new Set(report.reasons.map((reason) => reason.field))];
+  const paths = [...new Set(report.reasons.map((reason) => reason.path || reason.field))];
   const issues: Issue[] = [];
-  for (const field of fields) {
-    const rule = report.new_schema.properties?.[field];
-    const reasons = report.reasons.filter((reason) => reason.field === field);
+  for (const path of paths) {
+    const field = report.reasons.find((reason) => (reason.path || reason.field) === path)!.field;
+    const rule = ruleAtPath(report.new_schema, path);
+    const reasons = report.reasons.filter((reason) => (reason.path || reason.field) === path);
     const absent = reasons.filter((reason) =>
       ["missing", "null_not_allowed"].includes(reason.reason),
     );
@@ -131,14 +166,19 @@ export function summarizeIssues(report: Report): Issue[] {
     if (!rule?.enum && values.length)
       issues.push(combine(values, "Value not allowed", "Review values", "red"));
   }
+  for (const issue of issues) {
+    issue.suggestions = issue.parts.flatMap((part) =>
+      (part.distinct_values || []).flatMap((value) => value.suggestions || []),
+    );
+  }
   return issues.sort((a, b) => {
     const rank = (issue: Issue) =>
-      report.new_schema.properties?.[issue.field]?.enum
+      ruleAtPath(report.new_schema, issue.path)?.enum
         ? 0
         : issue.parts[0].reason === "wrong_type"
           ? 1
           : 2;
-    return rank(a) - rank(b) || a.field.localeCompare(b.field);
+    return rank(a) - rank(b) || a.path.localeCompare(b.path);
   });
 }
 

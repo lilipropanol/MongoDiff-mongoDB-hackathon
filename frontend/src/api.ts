@@ -24,8 +24,8 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
 
 export const api = {
   config: () => request<Config>("/config"),
-  analyze: (source: Source) =>
-    request<Report>("/analyze", { source, session_id: sessionId }),
+  analyze: (source: Source, suggestions = false) =>
+    request<Report>("/analyze", { source, session_id: sessionId, suggestions }),
   history: () => request<Report[]>(`/runs?session_id=${sessionId}`),
   plan: (
     id: string,

@@ -39,7 +39,7 @@ class SchemaTranslator:
         if decorators.field_validators or decorators.model_validators or decorators.validators or decorators.root_validators:
             raise TypeError(f"Unsupported custom validator on {model.__name__}")
         if decorators.field_serializers or decorators.model_serializers:
-            raise TypeError(f"Custom serializer on {model.__name__} changes the stored shape; not supported")
+            raise TypeError(f"Unsupported custom serializer on {model.__name__}: it changes the stored shape")
         if model.model_config.get("extra") == "forbid":
             raise TypeError("extra='forbid' is not supported yet (MongoDB documents also contain _id)")
         properties, required = {}, []
@@ -50,9 +50,10 @@ class SchemaTranslator:
                 raise TypeError(f"Unsupported AliasPath/AliasChoices on {name}")
             if field.exclude:
                 raise TypeError(f"Field {name} is excluded from serialization, so it is never stored; remove it from the model")
+            validation_key = field.validation_alias or field.alias or name
             key = field.serialization_alias or field.alias or name
-            if isinstance(field.validation_alias, str) and field.validation_alias != key:
-                raise TypeError(f"Field {name} is read from {field.validation_alias!r} but written as {key!r}; the stored key is ambiguous")
+            if validation_key != key:
+                raise TypeError(f"Unsupported alias mismatch on {name}: input name {validation_key!r} differs from stored name {key!r}")
             if key.startswith("$") or "." in key:
                 raise TypeError(f"Unsupported stored field name: {key}")
             properties[key] = self.field_schema(field.annotation, f"{path}.{key}" if path else key)

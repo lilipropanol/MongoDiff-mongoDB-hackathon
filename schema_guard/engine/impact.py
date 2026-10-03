@@ -307,7 +307,7 @@ def _collection_exists(collection):
 
 def analyze_collection(collection, new_schema: dict, changes: list[dict], examples: int = 3, old_schema: dict | None = None,
                        *, distinct_limit: int = 10, max_time_ms: int = 30000, two_pass: bool = True,
-                       version_field: str | None = None) -> dict:
+                       version_field: str | None = None, suggestions: bool | None = None) -> dict:
     _validate_limits(examples, distinct_limit, max_time_ms)
     if version_field is None:
         version_field = os.getenv("GUARD_VERSION_FIELD", "schemaVersion")
@@ -406,5 +406,12 @@ def analyze_collection(collection, new_schema: dict, changes: list[dict], exampl
     if version_field:
         result["versioning"] = _versioning(version_field, data, changes)
     from . import suggest
-    suggest.maybe_enrich(result, new_schema, changes, collection=collection)
+    if suggestions is False:
+        pass
+    elif suggestions is True:
+        mode = (os.getenv("GUARD_SUGGESTIONS") or "").strip().lower()
+        if mode in ("lexical", *suggest.PROVIDERS):
+            suggest.enrich(result, new_schema, changes, mode=mode, collection=collection)
+    else:
+        suggest.maybe_enrich(result, new_schema, changes, collection=collection)
     return result

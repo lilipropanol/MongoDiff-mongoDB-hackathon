@@ -29,6 +29,7 @@ export function App() {
   );
   const [config, setConfig] = useState<Config | null>(null);
   const [source, setSource] = useState<Source>("demo");
+  const [suggestionsOptIn, setSuggestionsOptIn] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
   const [history, setHistory] = useState<Report[]>([]);
   const [detail, setDetail] = useState<Detail>(null);
@@ -54,13 +55,15 @@ export function App() {
       setHistoryError("Run history could not be loaded. Retry to refresh it.");
     }
   }
-  async function run(mode: Source, reset = false) {
+  async function run(mode: Source, reset = false, includeSuggestions = suggestionsOptIn) {
     setBusy(true);
     setError("");
     setDetail(null);
     setBefore(null);
     try {
-      const next = reset ? await api.reset() : await api.analyze(mode);
+      const next = reset
+        ? await api.reset()
+        : await api.analyze(mode, mode === "atlas" && includeSuggestions);
       setReport(next);
       setSource(next.source);
       await refreshHistory();
@@ -101,7 +104,7 @@ export function App() {
   const collection = report?.collection || config?.collection || "movies";
   const detailTitle =
     typeof detail === "object" && detail
-      ? detail.field
+      ? detail.path
       : detail === "changes"
         ? "Application model changes"
         : detail === "validator"
@@ -203,6 +206,20 @@ export function App() {
                 </span>
               )}
             </div>
+            {source === "atlas" && config?.suggestions_configured && (
+              <label className="suggestion-opt-in">
+                <input
+                  type="checkbox"
+                  checked={suggestionsOptIn}
+                  disabled={working}
+                  onChange={(event) => setSuggestionsOptIn(event.target.checked)}
+                />
+                <span>
+                  Include suggestions
+                  <small>{config.suggestion_mode === "lexical" ? "Offline matching" : "Optional · " + (config.suggestion_mode === "atlas-vector" ? "Atlas Vector Search" : "Voyage AI")}</small>
+                </span>
+              </label>
+            )}
             <div className="toolbar-buttons">
               {source === "demo" && (
                 <IconButton
@@ -224,6 +241,12 @@ export function App() {
               </Button>
             </div>
           </div>
+          {source === "atlas" && suggestionsOptIn && config?.suggestions_configured && config.suggestion_mode !== "lexical" && (
+            <p className="suggestion-disclosure">
+              Suggestions share bounded distinct values, allowed values, and field names with the configured provider. Document examples, IDs, and connection details are excluded.
+              {config.suggestion_mode === "atlas-vector" && " Atlas Vector Search stores allowed-value vectors in the separately configured vocabulary collection; it does not write to the scanned collection."}
+            </p>
+          )}
         </Card>
         {error && (
           <Banner variant="danger" className="scan-error" role="alert">
@@ -263,7 +286,44 @@ export function App() {
               report={report}
               openValidator={() => setDetail("validator")}
             />
+            {report.scan?.suggestions && (
+              <div className="suggestion-status" role="status">
+                <Icon aria-hidden glyph={report.scan.suggestions.status === "fallback" ? "Warning" : "Sparkle"} />
+                <span>
+                  {report.scan.suggestions.provider === "lexical" ? "Offline value suggestions" :
+                    report.scan.suggestions.method === "atlas-vector-search" ? "Atlas Vector Search suggestions" :
+                      report.scan.suggestions.provider === "voyage" ? "Voyage AI suggestions" : "Suggestions"}
+                  {report.scan.suggestions.status === "fallback" && report.scan.suggestions.fallback_reason
+                    ? ` · Fallback: ${report.scan.suggestions.fallback_reason}`
+                    : " · Review candidates before using them."}
+                </span>
+              </div>
+            )}
             <RootCauseTable report={report} inspect={setDetail} />
+            {!!report.warnings?.length && (
+              <Card as="section" className="analysis-note-panel" aria-label="Model defaults">
+                <h2>Fields using model defaults</h2>
+                {report.warnings.map((warning) => (
+                  <p key={warning.path}><code>{warning.path}</code> · {warning.count.toLocaleString("en-IE")} documents · missing from storage</p>
+                ))}
+              </Card>
+            )}
+            {report.versioning && (
+              <Card as="section" className="analysis-note-panel" aria-label="Schema version analysis">
+                <div className="version-heading">
+                  <h2>Schema version</h2>
+                  {report.versioning.bump_recommended && <Badge variant="yellow">Version bump recommended</Badge>}
+                </div>
+                <p>{report.versioning.message}</p>
+                {report.versioning.versions.length > 0 && (
+                  <div className="version-list">
+                    {report.versioning.versions.map((item, index) => (
+                      <span key={`${String(item.version)}-${index}`}><strong>v{String(item.version ?? "unset")}</strong> · {number(item.failing)} failing</span>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            )}
             <section className="surface remediation-panel">
               <FixesView
                 report={report}
