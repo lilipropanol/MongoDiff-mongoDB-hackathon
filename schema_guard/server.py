@@ -24,6 +24,7 @@ from .impact import analyze_collection
 from .models import load_collection_validator, load_model
 from .report import build_report
 from .translator import SchemaTranslator
+from .engine import suggest
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -31,6 +32,7 @@ app = FastAPI(title="Atlas Schema Guard", version="0.1.0")
 lock = RLock()
 sessions = {}
 plans = {}
+demo_suggestion_cache = {}
 logger = logging.getLogger(__name__)
 
 
@@ -106,6 +108,8 @@ def run_analysis(session_id, source, suggestions=False):
     if source == "demo":
         session = ensure_demo_session(session_id)
         impact = analyze_demo(session["documents"], old, new)
+        if suggestions:
+            enrich_demo(impact, new, changes)
         database, collection = "schema_guard_demo", "movies"
     else:
         uri = os.getenv("MONGODB_URI")
@@ -134,6 +138,39 @@ def run_analysis(session_id, source, suggestions=False):
     return saved
 
 
+def enrich_demo(impact, schema, changes):
+    """Opt-in provider calls using only fixture value summaries; cache successful replies for retakes."""
+    configured_mode = (os.getenv("GUARD_SUGGESTIONS") or "").strip().lower()
+    mode = "voyage" if configured_mode == "atlas-vector" else configured_mode
+    if mode not in ("lexical", *suggest.PROVIDERS):
+        return
+    payload = {"reasons": [{key: reason[key] for key in ("field", "path", "reason", "distinct_values") if key in reason}
+                           for reason in impact["reasons"]]}
+    signature = json.dumps({"payload": payload, "schema": schema, "changes": changes, "mode": mode,
+                            "model": os.getenv("VOYAGE_EMBED_MODEL"), "rerank_model": os.getenv("VOYAGE_RERANK_MODEL"),
+                            "url": os.getenv("VOYAGE_API_URL"), "threshold": os.getenv("VOYAGE_MIN_SCORE")}, sort_keys=True)
+    cached = demo_suggestion_cache.get(signature)
+    if cached is None:
+        suggestion_changes = deepcopy(changes)
+        suggest.enrich(payload, schema, suggestion_changes, mode=mode)
+        cached = {"payload": payload, "changes": suggestion_changes}
+        if payload["scan"]["suggestions"]["status"] == "ok":
+            if len(demo_suggestion_cache) >= 8:
+                demo_suggestion_cache.pop(next(iter(demo_suggestion_cache)))
+            demo_suggestion_cache[signature] = deepcopy(cached)
+        cache_hit = False
+    else:
+        cached = deepcopy(cached)
+        cache_hit = True
+    for reason, enriched in zip(impact["reasons"], cached["payload"]["reasons"]):
+        if "distinct_values" in enriched:
+            reason["distinct_values"] = enriched["distinct_values"]
+    for change, enriched in zip(changes, cached["changes"]):
+        if "rename_candidates" in enriched:
+            change["rename_candidates"] = enriched["rename_candidates"]
+    impact.setdefault("scan", {})["suggestions"] = {**cached["payload"]["scan"]["suggestions"], "cache_hit": cache_hit}
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -147,6 +184,7 @@ def config():
             "collection": os.getenv("MONGODB_COLLECTION", "movies"), "live_apply_available": False,
             "suggestions_configured": suggestion_mode in supported_suggestions,
             "suggestion_mode": suggestion_mode if suggestion_mode in supported_suggestions else None,
+            "demo_suggestion_mode": "voyage" if suggestion_mode == "atlas-vector" else suggestion_mode if suggestion_mode in supported_suggestions else None,
             "suggestion_key_configured": bool(os.getenv("VOYAGE_API_KEY"))}
 
 
@@ -155,7 +193,7 @@ def analyze(request: RunRequest):
     try:
         if request.source == "demo":
             with lock:
-                return run_analysis(request.session_id, request.source)
+                return run_analysis(request.session_id, request.source, request.suggestions)
         return run_analysis(request.session_id, request.source, request.suggestions)
     except PyMongoError:
         logger.warning("MongoDB scan failed (connection, permissions, query, or scan timeout)")

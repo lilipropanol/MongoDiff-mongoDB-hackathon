@@ -70,7 +70,7 @@ The dashboard recreates Atlas Data Explorer with **mongoDiff** as its active col
 
 Only mongoDiff is implemented. The other collection tabs and global navigation icons provide Atlas context. The tree filters the current configured collection; it does not discover other collections. Scan controls and document issues are separated into LeafyGreen Cards. Model changes, document examples, validator preview and history open LeafyGreen Modals. Document inspection shows flat Atlas-style key/value previews.
 
-The main view shows the unique failing-document count, issue paths and per-reason old/new counts. Details show bounded bad values, examples and plain-language explanations. Optional warnings surface absent defaults; version analysis summarizes stored versions. The opt-in control appears only when a server-side suggestion provider is configured; candidates are advisory and never selected or applied automatically. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
+The main view shows the unique failing-document count, issue paths and per-reason old/new counts. Details show bounded bad values, examples and explanations. **AI suggestions** is explicit opt-in, enabled when a provider is configured. Candidates show their actual source and similarity score; **Use suggestion** adds a human choice to the regenerated repair preview. Nothing is applied until confirmation. [Frontend plan](docs/FRONTEND_PLAN.md) and [brand guidance](brand.md) describe the implementation.
 
 ## Try the complete demo
 
@@ -81,6 +81,8 @@ The main view shows the unique failing-document count, issue paths and per-reaso
 5. Select **Apply Fix & Rescan**, then confirm **Apply & Rescan**. The isolated fixture repair returns a fresh report with **0 failures**.
 6. **Run history** opens saved reports and the model-change view. **View validator**, report export, and script download remain available.
 7. **Reset demo data** restores the seed and scans again.
+
+For the AI/video demo, configure the local provider, click **AI suggestions**, then the rating row's **Review suggestions**. Successful real provider replies are cached and labelled for retakes. Follow [the two-minute recording script](docs/DEMO_VIDEO.md) for exact clicks and narration. The local fixture demo uses Voyage embeddings; it does not run Atlas `$vectorSearch`.
 
 The streamlined dashboard has no JSON editors. Custom defaults/mappings remain supported by the plan API described in [docs/API.md](docs/API.md); an optional advanced decision dialog is future work. Atlas analysis and exported mechanical plans remain read-only, and the Apply button is disabled for Atlas.
 
@@ -110,7 +112,7 @@ Load `sample_mflix` in your Atlas cluster, grant read access to the target colle
 
 The scan accepts trusted server-configured Pydantic or JSON Schema sources, or the collection's current validator. Bounded, time-limited MongoDB aggregations count unique failures, classify nested/list issues and collect capped example/value summaries. Issue counts can overlap. It uses a two-pass scan and is not a snapshot guarantee if concurrent writes occur. Atlas output is real collection data and is never replaced by demo results on failure. Atlas and Atlas Vector Search still need verification on a disposable cluster.
 
-Suggestions are disabled by default. Configure `GUARD_SUGGESTIONS=voyage` with a `VOYAGE_API_KEY`, `voyage-rerank`, `atlas-vector` plus an explicitly named `GUARD_VECTOR_COLLECTION`, or `lexical` for offline matching. Then choose **Include suggestions** before an Atlas scan. Voyage receives only bounded distinct bad values, allowed values and field names; IDs/examples and credentials stay server-side. See [the AI setup and safety contract](docs/API.md#optional-suggestions).
+Suggestions are disabled by default. Configure `GUARD_SUGGESTIONS=voyage` with a `VOYAGE_API_KEY`, `voyage-rerank`, `atlas-vector` plus an explicitly named `GUARD_VECTOR_COLLECTION`, or `lexical` for offline matching. Click **AI suggestions** to opt in on demo or Atlas data. Voyage receives only bounded distinct bad values, allowed values and field names; IDs/examples and credentials stay server-side. See [the AI setup and safety contract](docs/API.md#optional-suggestions).
 
 **Atlas analysis and plan generation are read-only.** Optional Atlas Vector Search writes allowed-value vectors only to a separately configured vocabulary collection and refuses to target the scanned collection; it requires explicit user opt-in. Live apply and MongoDB-backed report storage are not implemented. The validator view is a preview only. Exported scripts are review artifacts; do not run them on production.
 

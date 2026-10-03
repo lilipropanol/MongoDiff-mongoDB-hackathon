@@ -77,7 +77,10 @@ export function RootCauseTable({
               <Cell>
                 <code className="field-name">{issue.path}</code>
               </Cell>
-              <Cell>{issue.label}</Cell>
+              <Cell>
+                <span>{issue.label}</span>
+                {!!issue.suggestions.length && <span className="issue-suggestion-indicator"><Icon aria-hidden glyph="Sparkle" size={14} /> Suggestions available</span>}
+              </Cell>
               <Cell className="count-column" align="right">
                 <strong>{number(issue.count)}</strong>
               </Cell>
@@ -92,7 +95,7 @@ export function RootCauseTable({
                   onClick={() => inspect(issue)}
                   aria-label={`Details for ${issue.path}: ${issue.label}`}
                 >
-                  Details
+                  {issue.suggestions.length ? "Review suggestions" : "Details"}
                 </Button>
               </Cell>
             </Row>
@@ -124,7 +127,10 @@ const reasonLabels: Record<string, string> = {
   value_not_allowed: "Invalid value",
   nested_or_array_constraint: "Nested rule mismatch",
 };
-export function ReasonDetails({ issue }: { issue: Issue }) {
+export function ReasonDetails({ issue, onChooseSuggestion }: {
+  issue: Issue;
+  onChooseSuggestion?: (field: string, value: string, target: string) => void;
+}) {
   const examples = issue.parts.flatMap((part) =>
     part.examples.map((document) => ({ document, reason: part.reason })),
   );
@@ -145,16 +151,29 @@ export function ReasonDetails({ issue }: { issue: Issue }) {
       {issue.distinctValues.length > 0 && (
         <div className="bad-values" aria-label="Observed values">
           <h3>Observed values</h3>
+          {!!issue.suggestions.length && <p className="suggestion-explainer">Scores measure similarity. Choose a mapping to add it to the repair preview.</p>}
           {issue.distinctValues.map((item, index) => (
             <div className="bad-value-row" key={`${item.bson_type}-${JSON.stringify(item.value)}-${index}`}>
               <code>{JSON.stringify(item.value)}</code>
               <span>{number(item.count)} docs</span>
-              {item.suggestions?.map((suggestion) => (
-                <span className="suggestion-chip" key={`${suggestion.target}-${suggestion.source}`}>
-                  Suggested: <code>{suggestion.target}</code>
-                  <span>{Math.round(suggestion.score * 100)}% · {suggestion.source}</span>
-                </span>
-              ))}
+              {!!item.suggestions?.length && (
+                <div className="value-suggestions">
+                  {item.suggestions.map((suggestion) => (
+                    <div className="value-suggestion" key={`${suggestion.target}-${suggestion.source}`}>
+                      <div>
+                        <code>{JSON.stringify(item.value)} → {JSON.stringify(suggestion.target)}</code>
+                        <span>{suggestion.source === "voyage-embed" ? "Voyage embeddings" : suggestion.source === "voyage-rerank" ? "Voyage reranker" : suggestion.source === "atlas-vector-search" ? "Atlas Vector Search" : "Text matching"} · score {suggestion.score.toFixed(2)}</span>
+                      </div>
+                      {onChooseSuggestion && item.mappable && !item.truncated && typeof item.value === "string" && (
+                        <Button size="small" onClick={() => onChooseSuggestion(issue.field, item.value as string, suggestion.target)}
+                          aria-label={`Use ${suggestion.target} for ${JSON.stringify(item.value)}`}>
+                          Use suggestion
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {issue.parts.some((part) => part.distinct_values_limited) && (
@@ -167,7 +186,9 @@ export function ReasonDetails({ issue }: { issue: Issue }) {
           Showing {number(examples.length)} examples.
         </Body>
       )}
-      <div className="document-list">
+      <details className="inspected-examples" open={!issue.suggestions.length}>
+        <summary>Document examples</summary>
+        <div className="document-list">
         {examples.map(({ document, reason }, index) => (
           <Card
             as="article"
@@ -208,7 +229,8 @@ export function ReasonDetails({ issue }: { issue: Issue }) {
             </dl>
           </Card>
         ))}
-      </div>
+        </div>
+      </details>
       {!examples.length && <Body>No examples available.</Body>}
     </div>
   );

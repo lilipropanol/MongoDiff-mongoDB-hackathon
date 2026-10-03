@@ -2318,6 +2318,63 @@ button {
 .bad-value-row:last-of-type {
   border-bottom: 0;
 }
+.value-suggestions {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding-top: 6px;
+}
+.value-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--inner);
+}
+.value-suggestion > div { min-width: 0; }
+.value-suggestion code { overflow-wrap: anywhere; }
+.value-suggestion span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.value-suggestion button { flex-shrink: 0; }
+.issue-suggestion-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  color: var(--green);
+  font-size: 11px;
+}
+.suggestion-explainer {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.mapping-review-note {
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--green);
+}
+.inspected-examples { margin-top: 18px; }
+.inspected-examples summary {
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+.inspected-examples summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
 .bad-value-row > span:not(.suggestion-chip) {
   color: var(--muted);
 }

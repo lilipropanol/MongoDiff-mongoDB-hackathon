@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime
 import re
 
-from .impact import reason_specs
+from .impact import explain, reason_specs, summarize_values
 
 SEED = [
     {"_id": "movie-001", "title": "The Quiet Harbour", "year": 2004, "runtime": 104, "rated": "PG"},
@@ -90,7 +90,14 @@ def analyze_demo(documents, old_schema, new_schema):
             continue
         explained.update(d["_id"] for d in affected)
         examples = [{"_id": d["_id"], **({field: d[field]} if field in d else {})} for d in affected[:3]]
-        reasons.append({"field": field, "reason": kind, "count": len(affected), "examples": examples, "example_ids": [d["_id"] for d in examples]})
+        reason = {"field": field, "path": field, "location": "field", "reason": kind,
+                  "count": len(affected), "examples": examples, "example_ids": [d["_id"] for d in examples],
+                  "count_newly": sum(matches_schema(d, old_schema) for d in affected),
+                  "count_preexisting": sum(not matches_schema(d, old_schema) for d in affected)}
+        if kind in ("wrong_type", "value_not_allowed"):
+            reason.update(summarize_values([d[field] for d in affected]))
+        reason["explanation"] = explain(kind, field, rule, reason.get("distinct_values"))
+        reasons.append(reason)
     return {"total": len(documents), "failing": len(invalid), "reasons": reasons,
             "preexisting": sum(not matches_schema(d, old_schema) for d in documents),
             "newly_failing": sum(matches_schema(d, old_schema) and not matches_schema(d, new_schema) for d in documents),

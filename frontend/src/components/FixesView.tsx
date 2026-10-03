@@ -11,10 +11,12 @@ export function FixesView({
   report,
   onApplied,
   onWorking,
+  mappingOverrides,
 }: {
   report: Report;
   onApplied: (report: Report) => void;
   onWorking?: (busy: boolean) => void;
+  mappingOverrides?: Record<string, Record<string, unknown>>;
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,9 @@ export function FixesView({
     setLoading(true);
     setError("");
     const decisions = demoDecisions(report);
+    for (const [field, values] of Object.entries(mappingOverrides || {})) {
+      decisions.mappings[field] = { ...decisions.mappings[field], ...values };
+    }
     try {
       const next = await api.plan(
         report.id,
@@ -48,7 +53,7 @@ export function FixesView({
     return () => {
       activeRequest.current++;
     };
-  }, [report.id]);
+  }, [report.id, mappingOverrides]);
   async function apply() {
     if (!plan || report.source !== "demo") return;
     setBusy(true);
@@ -75,6 +80,9 @@ export function FixesView({
         </div>
       </div>
       <div className="remediation-body">
+        {!!Object.keys(mappingOverrides || {}).length && (
+          <p className="mapping-review-note" role="status">Your selected mappings are included below. Review the operations before applying.</p>
+        )}
         {loading ? (
           <div className="pipeline-placeholder" role="status">
             Preparing fix…

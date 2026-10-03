@@ -329,6 +329,39 @@ try {
       await page.getByLabel("Close collection explorer").click();
     }
   }
+  if (process.env.GUARD_SMOKE_AI === "1") {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const [response] = await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith("/api/analyze") && response.request().postDataJSON()?.suggestions === true),
+      page.getByRole("button", { name: "AI suggestions", exact: true }).click(),
+    ]);
+    const aiReport = await response.json();
+    assert.equal(aiReport.failing, 7);
+    assert.equal(aiReport.scan.suggestions.status, "ok", "Configured provider must succeed for the recording check");
+    assert.equal(aiReport.scan.suggestions.provider, "voyage");
+    await page.getByText(/Voyage AI suggestions/).waitFor();
+    await openDetails("Details for rated: Missing or invalid value");
+    await page.getByRole("button", { name: 'Use R for "NR"', exact: true }).waitFor();
+    await accessible("Voyage suggestions modal");
+    await page.screenshot({ path: "/tmp/mongodiff-ai-suggestions.png", fullPage: true });
+    await page.setViewportSize({ width: 375, height: 900 });
+    await accessible("375px AI suggestions modal");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const [preview] = await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith("/plan") && response.request().postDataJSON()?.mappings?.rated?.NR === "R"),
+      page.getByRole("button", { name: 'Use R for "NR"', exact: true }).click(),
+    ]);
+    const selectedPlan = await preview.json();
+    assert.ok(selectedPlan.operations.some((operation) => operation.kind === "mapping" && operation.filter.$expr.$eq[1].$literal === "NR" && operation.update.$set.rated === "R"));
+    assert.equal(await page.getByTestId("failure-count").textContent(), "7 of 12", "Selecting a suggestion only updates the preview");
+    await page.getByRole("button", { name: "Apply Fix & Rescan", exact: true }).click();
+    await page.getByRole("button", { name: "Apply & Rescan", exact: true }).click();
+    await page.getByTestId("failure-count").filter({ hasText: "0 of 12" }).waitFor();
+    await page.getByRole("button", { name: "Reset demo data" }).click();
+    await page.getByTestId("failure-count").filter({ hasText: "7 of 12" }).waitFor();
+    console.log("Passed: real Voyage suggestions, cached retakes, accessible mobile inspection, explicit mapping preview, and fixture repair 7→0.");
+  }
   await page.getByRole("button", { name: "Data source", exact: true }).click();
   await page.getByRole("option", { name: /MongoDB Atlas/ }).click();
   await page

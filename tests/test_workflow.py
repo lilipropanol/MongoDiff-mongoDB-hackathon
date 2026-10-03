@@ -15,6 +15,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.delenv("MONGODB_URI", raising=False)
     server.sessions.clear()
     server.plans.clear()
+    server.demo_suggestion_cache.clear()
     return TestClient(server.app)
 
 
@@ -200,3 +201,54 @@ def test_unconfigured_atlas_is_actionable(client):
     response = client.post("/api/analyze", json={"session_id": str(uuid4()), "source": "atlas"})
     assert response.status_code == 409
     assert "MONGODB_URI" in response.json()["detail"]
+
+
+def test_demo_ai_requires_opt_in_preserves_counts_and_caches_safe_value_payload(client, monkeypatch):
+    monkeypatch.setenv("GUARD_SUGGESTIONS", "voyage")
+    monkeypatch.setenv("VOYAGE_API_KEY", "test-private-key")
+    calls = []
+
+    def embeddings(url, payload, key, timeout):
+        calls.append(payload)
+        assert "movie-" not in str(payload)
+        assert "The Last Frame" not in str(payload)
+        assert "test-private-key" not in str(payload)
+        assert set(payload) == {"input", "model"}
+        return {"data": [{"index": index, "embedding": [1.0, 0.0]} for index, _ in enumerate(payload["input"])]}
+
+    monkeypatch.setattr(server.suggest, "post_json", embeddings)
+    session = str(uuid4())
+    plain = client.post("/api/analyze", json={"session_id": session}).json()
+    assert calls == []
+    enriched = client.post("/api/analyze", json={"session_id": session, "suggestions": True}).json()
+    assert (enriched["total_docs"], enriched["failing"]) == (plain["total_docs"], plain["failing"]) == (12, 7)
+    assert len(calls) == 1
+    assert enriched["scan"]["suggestions"]["provider"] == "voyage"
+    assert enriched["scan"]["suggestions"]["cache_hit"] is False
+    for reason in enriched["reasons"]:
+        assert reason["count_newly"] + reason["count_preexisting"] == reason["count"]
+    replay = client.post("/api/analyze", json={"session_id": str(uuid4()), "suggestions": True}).json()
+    assert len(calls) == 1
+    assert replay["scan"]["suggestions"]["cache_hit"] is True
+    assert replay["failing"] == 7
+    assert "test-private-key" not in str(replay)
+    assert "test-private-key" not in str(client.get("/api/config").json())
+
+
+def test_demo_ai_failure_is_labelled_and_can_retry(client, monkeypatch):
+    monkeypatch.setenv("GUARD_SUGGESTIONS", "voyage")
+    monkeypatch.setenv("VOYAGE_API_KEY", "test-private-key")
+    calls = []
+
+    def unavailable(*args):
+        calls.append(True)
+        raise TimeoutError("provider unavailable")
+
+    monkeypatch.setattr(server.suggest, "post_json", unavailable)
+    for _ in range(2):
+        report = client.post("/api/analyze", json={"session_id": str(uuid4()), "suggestions": True}).json()
+        assert report["failing"] == 7
+        assert report["scan"]["suggestions"]["status"] == "fallback"
+        assert report["scan"]["suggestions"]["provider"] == "lexical"
+        assert report["scan"]["suggestions"]["cache_hit"] is False
+    assert len(calls) == 2

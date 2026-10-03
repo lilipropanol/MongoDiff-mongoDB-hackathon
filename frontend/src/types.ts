@@ -58,6 +58,7 @@ export interface ScanSuggestions {
   status: "ok" | "fallback" | "disabled";
   fallback_reason?: string | null;
   semantic_jobs?: { scored: number; total: number };
+  cache_hit?: boolean;
 }
 export interface Warning {
   field: string;
@@ -135,5 +136,6 @@ export interface Config {
   live_apply_available: boolean;
   suggestions_configured?: boolean;
   suggestion_mode?: string | null;
+  demo_suggestion_mode?: string | null;
   suggestion_key_configured?: boolean;
 }

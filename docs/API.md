@@ -24,7 +24,7 @@ Session IDs are UUIDs stored in browser sessionStorage. They isolate fixtures an
 | `POST /api/demo/reset` | `{session_id}` | Fresh Report on restored fixture seed |
 | `GET /api/validator?session_id=UUID&run_id=UUID` | — | `collMod` preview with `validationAction:"warn"`; does not execute it |
 
-`session_id` and path IDs must be UUIDs. `source` defaults to `demo`; `suggestions` defaults to `false`. Suggestions run only for Atlas analyses and only when a supported `GUARD_SUGGESTIONS` mode is configured on the server. `/api/config` returns the provider mode and whether a Voyage key is configured, never the key itself. It does not test connectivity or permissions. `atlas_configured` only means a URI is set; `live_apply_available` is always `false`.
+`session_id` and path IDs must be UUIDs. `source` defaults to `demo`; `suggestions` defaults to `false`. Suggestions work for both demo fixtures and Atlas analyses when a supported provider is configured. `/api/config` returns the provider mode, `demo_suggestion_mode`, and whether a Voyage key is configured, never the key itself. It does not test connectivity or permissions. `atlas_configured` only means a URI is set; `live_apply_available` is always `false`.
 
 History reads local JSON files, considers the latest 200 report files across sessions, then returns up to 30 belonging to the requested session. It is not an unlimited MongoDB-backed audit log.
 
@@ -75,6 +75,10 @@ Diff kinds include `added`, `removed`, `became_required`, `became_optional`, and
 ### Optional suggestions
 
 Suggestions are off for each scan unless `suggestions:true` is sent from the UI. The server must also have `GUARD_SUGGESTIONS` set to `lexical`, `voyage`, `voyage-rerank`, or `atlas-vector`. Lexical matching is offline. Voyage modes send only bounded distinct bad values, allowed values, and field names; they never send examples, IDs, whole documents, credentials, or the MongoDB URI. Atlas Vector Search stores allowed-value vectors only in the explicitly configured `GUARD_VECTOR_COLLECTION`, and refuses the scanned namespace. Suggestions and provider/fallback status are recorded under `scan.suggestions`; they never alter counts or repair plans automatically. The UI labels candidates as suggestions for human review.
+
+The **AI suggestions** button is explicit opt-in for a scan. Demo analysis uses the same real suggestion provider on bounded synthetic values, without constructing a MongoDB client. Demo `atlas-vector` configuration uses Voyage embeddings instead and reports that actual method. Successful demo responses are cached in memory (up to eight signatures); `scan.suggestions.cache_hit` labels reuse. Failure/fallback results are not cached, so retry can contact the provider again. Fixture reasons include real per-reason old/new attribution, explanations and distinct-value summaries.
+
+**Use suggestion** adds a chosen root-field string mapping to the explicit plan request, followed by a regenerated preview. It does not write documents. Truncated or nested/non-mappable values cannot be selected. The backend validates the selected target against the new schema; application still requires review and confirmation. Similarity scores are not probabilities.
 
 ## Plan
 

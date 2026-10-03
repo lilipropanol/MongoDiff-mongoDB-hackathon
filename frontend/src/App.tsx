@@ -30,6 +30,7 @@ export function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [source, setSource] = useState<Source>("demo");
   const [suggestionsOptIn, setSuggestionsOptIn] = useState(false);
+  const [reviewedMappings, setReviewedMappings] = useState<Record<string, Record<string, unknown>>>({});
   const [report, setReport] = useState<Report | null>(null);
   const [history, setHistory] = useState<Report[]>([]);
   const [detail, setDetail] = useState<Detail>(null);
@@ -55,15 +56,17 @@ export function App() {
       setHistoryError("Run history could not be loaded. Retry to refresh it.");
     }
   }
-  async function run(mode: Source, reset = false, includeSuggestions = suggestionsOptIn) {
+  async function run(mode: Source, reset = false, includeSuggestions = false) {
     setBusy(true);
     setError("");
     setDetail(null);
     setBefore(null);
+    setReviewedMappings({});
+    setSuggestionsOptIn(includeSuggestions);
     try {
       const next = reset
         ? await api.reset()
-        : await api.analyze(mode, mode === "atlas" && includeSuggestions);
+        : await api.analyze(mode, includeSuggestions);
       setReport(next);
       setSource(next.source);
       await refreshHistory();
@@ -87,6 +90,7 @@ export function App() {
   async function applied(next: Report) {
     setBefore(report);
     setReport(next);
+    setReviewedMappings({});
     await refreshHistory();
   }
   function selectSource(next: Source) {
@@ -95,7 +99,17 @@ export function App() {
     setError("");
     setBefore(null);
     setDetail(null);
+    setReviewedMappings({});
+    setSuggestionsOptIn(false);
   }
+  function chooseSuggestion(field: string, value: string, target: string) {
+    setReviewedMappings((current) => ({
+      ...current,
+      [field]: { ...current[field], [value]: target },
+    }));
+    setDetail(null);
+  }
+  const suggestionMode = source === "demo" ? config?.demo_suggestion_mode : config?.suggestion_mode;
   const database =
     report?.database ||
     (source === "demo"
@@ -206,20 +220,6 @@ export function App() {
                 </span>
               )}
             </div>
-            {source === "atlas" && config?.suggestions_configured && (
-              <label className="suggestion-opt-in">
-                <input
-                  type="checkbox"
-                  checked={suggestionsOptIn}
-                  disabled={working}
-                  onChange={(event) => setSuggestionsOptIn(event.target.checked)}
-                />
-                <span>
-                  Include suggestions
-                  <small>{config.suggestion_mode === "lexical" ? "Offline matching" : "Optional · " + (config.suggestion_mode === "atlas-vector" ? "Atlas Vector Search" : "Voyage AI")}</small>
-                </span>
-              </label>
-            )}
             <div className="toolbar-buttons">
               {source === "demo" && (
                 <IconButton
@@ -231,6 +231,16 @@ export function App() {
                 </IconButton>
               )}
               <Button
+                leftGlyph={<Icon aria-hidden glyph="Sparkle" />}
+                disabled={working || !config?.suggestions_configured}
+                title={config?.suggestions_configured
+                  ? (suggestionMode === "lexical" ? "Opt in to offline value matching" : "Opt in to sharing bounded values and field names with Voyage AI")
+                  : "Configure a suggestion provider on the server"}
+                onClick={() => void run(source, false, true)}
+              >
+                {suggestionMode === "lexical" ? "Value suggestions" : "AI suggestions"}
+              </Button>
+              <Button
                 variant="primary"
                 className="guard-primary"
                 leftGlyph={<Icon aria-hidden glyph="Play" />}
@@ -241,10 +251,10 @@ export function App() {
               </Button>
             </div>
           </div>
-          {source === "atlas" && suggestionsOptIn && config?.suggestions_configured && config.suggestion_mode !== "lexical" && (
+          {suggestionsOptIn && config?.suggestions_configured && suggestionMode !== "lexical" && (
             <p className="suggestion-disclosure">
               Suggestions share bounded distinct values, allowed values, and field names with the configured provider. Document examples, IDs, and connection details are excluded.
-              {config.suggestion_mode === "atlas-vector" && " Atlas Vector Search stores allowed-value vectors in the separately configured vocabulary collection; it does not write to the scanned collection."}
+              {suggestionMode === "atlas-vector" && " Atlas Vector Search stores allowed-value vectors in the separately configured vocabulary collection; it does not write to the scanned collection."}
             </p>
           )}
         </Card>
@@ -295,7 +305,7 @@ export function App() {
                       report.scan.suggestions.provider === "voyage" ? "Voyage AI suggestions" : "Suggestions"}
                   {report.scan.suggestions.status === "fallback" && report.scan.suggestions.fallback_reason
                     ? ` · Fallback: ${report.scan.suggestions.fallback_reason}`
-                    : " · Review candidates before using them."}
+                    : report.scan.suggestions.cache_hit ? " · Saved provider response · Review before use." : " · Review candidates before using them."}
                 </span>
               </div>
             )}
@@ -327,7 +337,8 @@ export function App() {
             <section className="surface remediation-panel">
               <FixesView
                 report={report}
-                key={report.id}
+                key={report.id + JSON.stringify(reviewedMappings)}
+                mappingOverrides={reviewedMappings}
                 onApplied={(next) => void applied(next)}
                 onWorking={setRepairBusy}
               />
@@ -358,7 +369,7 @@ export function App() {
             onClose={() => setDetail(null)}
           >
             {typeof detail === "object" ? (
-              <ReasonDetails issue={detail} />
+              <ReasonDetails issue={detail} onChooseSuggestion={chooseSuggestion} />
             ) : detail === "history" ? (
               <>
                 <div className="section-heading">
@@ -391,6 +402,7 @@ export function App() {
                           setSource(item.source);
                           setDetail(null);
                           setBefore(null);
+                          setReviewedMappings({});
                         }}
                       >
                         <Icon aria-hidden glyph="Clock" />

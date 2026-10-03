@@ -5,7 +5,7 @@
 The UI owner has merged `engine/atlas-analysis` and the latest UI branch into `feature/schema-guard-atlas-ui`. The three build roles remain UI, schema/impact engine, and fixes/backend; integration is coordinated by the UI owner after branch pushes, not a separate role.
 
 - **Integrated:** language-neutral JSON Schema/model input, collection-validator input, deterministic breaking/compatible diff, bounded two-pass impact analysis, nested/list paths, distinct bad values, per-reason old/new counts, explanations, default warnings, schema-version analysis, measurement command, and optional lexical/Voyage/Atlas Vector Search suggestions.
-- **UI integration:** issue inspection shows nested paths, counts, explanations, bounded values and advisory candidates. Warnings and schema-version summaries appear when supplied by the report. The configured provider is opt-in per Atlas scan.
+- **UI integration:** issue inspection shows nested paths, counts, explanations, bounded values and advisory candidates. The **AI suggestions** button opts in for demo or Atlas data. **Use suggestion** adds a human choice to the regenerated repair preview; application still requires confirmation. Warnings and schema-version summaries appear when supplied by the report.
 - **Safety:** Atlas scan and plan remain read-only. Fixture apply/restore affects only in-memory demo data. Atlas Vector Search can write only to its explicitly configured separate vocabulary collection. Suggestions never apply repairs.
 - **Still to verify:** run the combined checks; measure against the event Atlas cluster with the measurement command; verify Voyage and Vector Search credentials on a disposable namespace. Do not quote Atlas findings until measured.
 
@@ -101,12 +101,12 @@ How the UI owner can try it: pull the integration branch, merge the UI branch in
 ### AI suggestion UI (integrated; opt-in)
 
 - [x] Keep candidates visibly advisory. Issue details show suggestions beside distinct values with target, score and source; rename candidates appear beside model changes.
-- [ ] Selecting a candidate to prefill an editable mapping decision remains future work. Never auto-select a mapping or apply a repair.
+- [x] Selecting a candidate adds an explicit mapping to the regenerated repair preview. No candidate is auto-selected and selecting one never writes documents. A general custom-value/default editor remains future work.
 - [x] The report records provider/fallback status; failed Voyage requests preserve the scan and label lexical fallback.
 - [x] Preserve per-scan opt-in and disclose that bounded bad values, allowed values and field names may be sent to the configured provider. Do not send examples, document IDs, whole documents or connection details.
 - [x] The report/API types carry suggestion status, per-value suggestions and rename candidates.
 
-Acceptance: candidates are available only where applicable, remain advisory, status and fallback are clear, and no suggestion changes counts or executes a write. Editable mapping decisions from selected candidates remain open.
+Acceptance: candidates are available only where applicable, remain advisory, and show their source and score. Selecting one updates an explicit plan preview without changing counts. Application requires confirmation. Demo provider responses can be cached for retakes and are labelled as saved responses. See [the recording script](docs/DEMO_VIDEO.md).
 
 ### Acceptance
 
