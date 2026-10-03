@@ -39,13 +39,13 @@ Suggested branches: `ui/decision-flow`, `engine/atlas-analysis`, `backend/review
 Each pushed branch should include a short handoff:
 
 ```text
-Branch:
-Completed behavior:
-Changed files:
-API/report changes (or none):
-Checks run and results:
-Remaining gaps:
-How the UI owner can try it:
+Branch: fixes/backend
+Completed behavior: Added demo backup/restore flow, stale-plan enforcement, reviewed execution metadata, and a validator preview endpoint. Atlas analysis remains read-only and verified against the live sample_mflix.movies collection.
+Changed files: schema_guard/fixes.py, schema_guard/server.py, tests/test_workflow.py
+API/report changes (or none): Added execution_contract metadata to plans, /api/demo/restore, and /api/validator; existing /api/analyze and /api/demo/apply semantics remain stable.
+Checks run and results: .venv\Scripts\python.exe -m pytest -q -> 6 passed, 1 warning.
+Remaining gaps: live apply against a disposable MongoDB collection, durable backup persistence beyond demo memory, MongoDB-backed history, and UI wiring for live confirmation.
+How the UI owner can try it: run the server, use demo analysis/apply flow, then call restore to validate the review/undo path; keep live Atlas writes disabled until the next contract is approved.
 ```
 
 ## Person 1 — UI tasks
