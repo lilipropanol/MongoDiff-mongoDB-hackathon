@@ -48,6 +48,22 @@ Remaining gaps: live apply against a disposable MongoDB collection, durable back
 How the UI owner can try it: run the server, use demo analysis/apply flow, then call restore to validate the review/undo path; keep live Atlas writes disabled until the next contract is approved.
 ```
 
+### Final integration note
+
+Person 1 is currently working on the local UI branch and should push their branch before the final merge. The backend and engine branches are already integrated on `ui/integration` and verified together on Python. The UI owner should merge the final UI branch into the same integration branch only after confirming the shared contract in `docs/API.md`, `frontend/src/types.ts`, and the report fields produced by the engine/backend. The final sequence is: push UI branch, merge UI into `ui/integration`, rerun the Python checks and the frontend build, then run the smoke browser pass with a Chrome/Chromium binary available locally. Do not enable live MongoDB writes until the reviewed backup/execute/restore contract is validated on a disposable collection.
+
+### Shared integration handoff: backend + engine
+
+```text
+Branch: ui/integration
+Completed behavior: Backend + engine work has been merged and verified together. Atlas analysis is read-only and works against the configured sample_mflix.movies collection, the reviewed demo repair flow is restored safely, and the plan contract includes backup/staleness metadata. Python checks pass on the integrated branch.
+Changed files: schema_guard/fixes.py, schema_guard/server.py, tests/test_workflow.py, schema_guard/impact.py, schema_guard/translator.py, schema_guard/diff.py, plus the engine branch additions under schema_guard/engine/ and docs/engine/.
+API/report changes (or none): Shared API contract remains read-only for Atlas; added execution_contract metadata to plans, /api/demo/restore, and /api/validator. No live writable Atlas endpoint is enabled yet.
+Checks run and results: .venv\Scripts\python.exe -m pytest -q -> 130 passed, 35 skipped, 1 warning. npm --prefix frontend run build -> passed after installing frontend dependencies. Browser smoke remains blocked only by missing Chrome/Chromium in the environment.
+Remaining gaps: final UI merge, Chrome/Chromium runtime for smoke test, and any contract adjustments required once Person 1 pushes the UI branch.
+How the UI owner can try it: pull the integration branch, merge the UI branch into it, then run the app with the same local .env and verify the demo and Atlas analysis loops. Keep live writes disabled until the disposable-collection backup and restore flow is validated.
+```
+
 ## Person 1 — UI tasks
 
 ### Finish first
