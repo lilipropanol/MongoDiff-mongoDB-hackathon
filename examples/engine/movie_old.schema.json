@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Movie (old) - e.g. exported from a TypeScript/Zod, Java or Go model",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "year": { "type": "integer" },
+    "runtime": { "anyOf": [{ "type": "integer" }, { "type": "null" }], "default": null }
+  },
+  "required": ["title", "year"]
+}
