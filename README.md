@@ -1,5 +1,9 @@
 # MongoDB Atlas mongoDiff
 
+
+https://github.com/user-attachments/assets/fc70b84d-00f5-4083-9f16-22393c33d0f0
+
+
 Link: https://mongo-diff-mongo-db-hackathon.vercel.app/
 
 **Preview how a schema change affects documents already stored in MongoDB.** mongoDiff is an Atlas-style collection dashboard prototype built with LeafyGreen and a shared Python engine and CLI. It is an independent prototype; it is not installed inside Atlas or endorsed by MongoDB.
