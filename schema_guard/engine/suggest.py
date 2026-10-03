@@ -8,7 +8,7 @@ Off unless GUARD_SUGGESTIONS is set:
 Both Voyage modes need VOYAGE_API_KEY and fall back to lexical on any error.
 
 Tuning without code changes: VOYAGE_MIN_SCORE (threshold for the active Voyage mode), VOYAGE_EMBED_MODEL,
-VOYAGE_RERANK_MODEL, VOYAGE_API_URL (keys created in the Atlas console may use a different base URL).
+VOYAGE_RERANK_MODEL, VOYAGE_API_URL (default ai.mongodb.com for Atlas-issued keys; api.voyageai.com for voyageai.com keys).
 
 Privacy: only distinct bad values (already truncated), allowed enum values and field names are sent.
 Never document ids, documents, examples or the database URI.
@@ -24,7 +24,7 @@ import urllib.request
 
 DEFAULT_MODEL = "voyage-4-lite"
 DEFAULT_RERANK_MODEL = "rerank-2.5"
-DEFAULT_URL = "https://api.voyageai.com/v1"
+DEFAULT_URL = "https://ai.mongodb.com/v1"  # MongoDB-hosted Voyage AI (Atlas-issued keys); voyageai.com keys use https://api.voyageai.com/v1
 LEXICAL_MIN = 0.75
 VOYAGE_MIN = 0.6
 RERANK_MIN = 0.5

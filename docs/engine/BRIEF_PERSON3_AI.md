@@ -27,14 +27,14 @@ VOYAGE_API_KEY=...
 VOYAGE_MIN_SCORE=0.6                # threshold for the active Voyage mode (defaults: embed 0.6, rerank 0.5)
 VOYAGE_EMBED_MODEL=voyage-4-lite
 VOYAGE_RERANK_MODEL=rerank-2.5
-VOYAGE_API_URL=https://api.voyageai.com/v1   # keys created in the Atlas console may need a different base URL; check MongoDB's docs
+VOYAGE_API_URL=https://ai.mongodb.com/v1     # default (Atlas-issued keys, verified by Person 3); use https://api.voyageai.com/v1 for voyageai.com keys
 ```
 
 ## Where the output appears
 
 - `reasons[].distinct_values[].suggestions`: `[{target, score, source}]`, up to 3 per bad value
 - `changes[].rename_candidates`: `[{to, score, source}]`
-- `scan.suggestions`: `{provider, model, method, status, fallback_reason, semantic_jobs?}`. ⚠️ This is dropped today, because `build_report` doesn't copy `scan` (see task 2).
+- `scan.suggestions`: `{provider, model, method, status, fallback_reason, semantic_jobs?}`. It's saved in reports on `ui/integration`, where `report.py` copies `scan`.
 
 ## Your tasks
 
@@ -45,11 +45,9 @@ VOYAGE_API_URL=https://api.voyageai.com/v1   # keys created in the Atlas console
    ```
 
    If it fails with an Atlas-issued key, set `VOYAGE_API_URL` to the endpoint MongoDB's docs give for those keys.
-2. **`report.py`: three lines** so suggestion status, warnings and versioning reach saved reports:
+2. **`report.py`:** ✅ `warnings` and `scan` are already done on `ui/integration`. Add one more line for schema versioning:
 
    ```python
-   "warnings": impact.get("warnings", []),
-   "scan": impact.get("scan"),
    "versioning": impact.get("versioning"),
    ```
 

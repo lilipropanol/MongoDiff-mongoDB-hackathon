@@ -96,7 +96,7 @@ def test_voyage_payload_contains_only_values_targets_and_field_names():  # U-S2
     suggest.maybe_enrich(report, SCHEMA, [], env=ENV, transport=fake)
     assert len(fake.calls) == 1  # one batched request per scan
     call = fake.calls[0]
-    assert call["url"] == "https://api.voyageai.com/v1/embeddings"
+    assert call["url"] == "https://ai.mongodb.com/v1/embeddings"
     assert call["payload"]["model"] == "voyage-4-lite"
     sent = json.dumps(call["payload"])
     for secret in ("movie-001", "mongodb+srv", "_id", "example", "Quiet Harbour"):
@@ -230,7 +230,7 @@ def test_rerank_sends_one_request_per_bad_value_with_safe_payload():
     report = suggestion_report()
     suggest.maybe_enrich(report, SCHEMA, [], env=RERANK_ENV, transport=fake)
     assert len(fake.calls) == 4  # PG13, pg, NOT RATED, goood
-    assert {c["url"] for c in fake.calls} == {"https://api.voyageai.com/v1/rerank"}
+    assert {c["url"] for c in fake.calls} == {"https://ai.mongodb.com/v1/rerank"}
     first = fake.calls[0]["payload"]
     assert first["model"] == "rerank-2.5" and first["top_k"] == 3
     assert first["query"] == "rated value: PG13"

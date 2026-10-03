@@ -171,6 +171,15 @@ GUARD_SUGGESTIONS=lexical .venv/bin/schema-guard-server   # dashboard with offli
   - The handoff says Atlas analysis was "verified against the live sample_mflix.movies collection", but no counts are recorded anywhere.
   - None of the engine handoff items below were done yet. They hadn't seen this list.
 
+## Person 3's `ui/integration` branch (seen 14:20, 2026-10-03)
+
+- **Merges:** the engine branch (commits `a8a779f`, `962a02e`) plus `fixes/backend`.
+- **Edits to engine files there:**
+  - `suggest.py` default Voyage URL changed to `https://ai.mongodb.com/v1`, MongoDB-hosted Voyage for Atlas-issued keys (verified by Person 3); its test was updated to match
+  - a compat test was extended for the new `report.py` fields
+- **Carried into this branch** (the URL and matching test changes), so merging the stretch-goal commit won't conflict.
+- **Also on that branch:** `report.py` passes through `warnings` and `scan`; there's AI-suggestion UI guidance in `TEAM_HANDOFF.md` and `AGENTS.md`.
+
 ## Handoff: for Person 3 (including Atlas)
 
 Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is new after reading their branch; item 9 came with the stretch goals.
@@ -183,11 +192,9 @@ Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is n
    - Paste the printed summary (with date and cluster tier) into this file or `docs/VALIDATION.md`.
 2. **Run my real-MongoDB tests against Atlas's server version.** Set `SCHEMA_GUARD_TEST_URI` to a **disposable** Atlas database or cluster, then run `pytest -q tests/engine/integration`. The tests insert and drop their own collections, so **never point this at `sample_mflix` or production.**
 3. **Real-data example models.** After looking at `sample_mflix`, write `examples/engine/models_mflix_{old,new}.py` (or JSON) with nested `imdb`, `awards`, `genres`, `cast` and `rated`. Then demo it via `GUARD_OLD_MODEL/GUARD_NEW_MODEL`.
-4. **`report.py` (your file):** three lines so warnings, scan info and versioning reach saved reports. Today they're computed but dropped by `build_report`:
+4. **`report.py` (your file):** ✅ `warnings` and `scan` were added by Person 3 on `ui/integration` (commit `226e1eb`). **Still needed:** one more line for the schema-versioning output added later:
 
    ```python
-   "warnings": impact.get("warnings", []),
-   "scan": impact.get("scan"),
    "versioning": impact.get("versioning"),
    ```
 
