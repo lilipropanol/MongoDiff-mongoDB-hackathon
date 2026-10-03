@@ -17,6 +17,7 @@ There are two Voyage AI modes, plus offline text matching as a fallback. **They 
 | `lexical` | Offline text similarity | none |
 | `voyage` | Embeddings (`voyage-4-lite`), cosine similarity | **1 per scan** (batched) |
 | `voyage-rerank` | Reranker (`rerank-2.5`); usually more accurate for "which allowed value did they mean?" | 1 per bad value, capped at 20 per scan |
+| `atlas-vector` | **MongoDB Atlas Vector Search.** Voyage embeddings stored in a vocabulary collection, matched with `$vectorSearch` | 1 Voyage call per scan, plus one `$vectorSearch` per bad value |
 
 ## Setup (`.env`, which is git-ignored, so never commit keys)
 
@@ -26,6 +27,8 @@ VOYAGE_API_KEY=...
 # Optional tuning, no code changes needed:
 VOYAGE_MIN_SCORE=0.6                # threshold for the active Voyage mode (defaults: embed 0.6, rerank 0.5)
 VOYAGE_EMBED_MODEL=voyage-4-lite
+GUARD_VECTOR_COLLECTION=schema_guard.suggestion_vectors   # atlas-vector only: where vectors may be written (never the scanned collection)
+GUARD_VECTOR_INDEX_WAIT=60          # seconds to wait for the vector index to become queryable
 VOYAGE_RERANK_MODEL=rerank-2.5
 VOYAGE_API_URL=https://ai.mongodb.com/v1     # default (Atlas-issued keys, verified by Person 3); use https://api.voyageai.com/v1 for voyageai.com keys
 ```
@@ -56,7 +59,17 @@ VOYAGE_API_URL=https://ai.mongodb.com/v1     # default (Atlas-issued keys, verif
    - Compare the suggestions for real `rated` outliers (e.g. `"NOT RATED"`, `"TV-14"`, `"PASSED"`).
    - Adjust `VOYAGE_MIN_SCORE` until the suggestions are sensible.
    - Record the chosen mode, threshold and a few examples in `docs/engine/PROGRESS.md`.
-4. **`fixes.py` (optional):** only offer mappings for values with `mappable: true`. Suggestions stay advisory: the human still picks or types the mapping.
+4. **Verify Atlas Vector Search on a disposable Atlas cluster** (the headline MongoDB feature):
+
+   ```bash
+   SCHEMA_GUARD_ATLAS_VECTOR_URI='mongodb+srv://<disposable-cluster>' VOYAGE_API_KEY=... \
+     .venv/bin/python -m pytest -q tests/engine/integration/test_engine_vector_real.py -k live
+   ```
+
+   - It creates a throwaway database, a vocabulary collection and a `vectorSearch` index. It runs `$vectorSearch`, then drops the database.
+   - For the demo, set `GUARD_SUGGESTIONS=atlas-vector` and `GUARD_VECTOR_COLLECTION=schema_guard.suggestion_vectors`, and use a database user that can write to that one namespace (the scan itself stays read-only).
+   - The status should show `method: "atlas-vector-search"`.
+5. **`fixes.py` (optional):** only offer mappings for values with `mappable: true`. Suggestions stay advisory: the human still picks or types the mapping.
 
 ## Rules (please keep)
 
@@ -64,7 +77,7 @@ VOYAGE_API_URL=https://ai.mongodb.com/v1     # default (Atlas-issued keys, verif
 - **Only these are sent:** bad values (cut to 80 characters), allowed enum values and field names. Never document ids, documents, examples or the database URI. There are tests for this; keep them passing.
 - **Rate limits:** the free tier can be about 3 requests a minute. Prefer `voyage` (one batched call). `voyage-rerank` is capped at 20 calls per scan; values beyond the cap still get offline suggestions.
 - **Failures:** if Voyage fails or times out (10 s), the scan still succeeds, with offline suggestions and `status: "fallback"`.
-- **No Atlas Vector Search or auto-embedding.** They need index creation, which is a write, and the scan is read-only.
+- **Atlas Vector Search writes only to `GUARD_VECTOR_COLLECTION`.** That's the vocabulary of allowed values and its index. It refuses the scanned collection, and the scan itself stays read-only.
 
 ## Done when
 

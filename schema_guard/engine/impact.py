@@ -406,5 +406,5 @@ def analyze_collection(collection, new_schema: dict, changes: list[dict], exampl
     if version_field:
         result["versioning"] = _versioning(version_field, data, changes)
     from . import suggest
-    suggest.maybe_enrich(result, new_schema, changes)
+    suggest.maybe_enrich(result, new_schema, changes, collection=collection)
     return result

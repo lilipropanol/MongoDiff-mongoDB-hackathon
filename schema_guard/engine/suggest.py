@@ -5,6 +5,8 @@ Off unless GUARD_SUGGESTIONS is set:
   GUARD_SUGGESTIONS=voyage         Voyage AI embeddings: one batched request per scan
   GUARD_SUGGESTIONS=voyage-rerank  Voyage AI reranker: usually more accurate for "which allowed value did
                                    they mean?", but one request per bad value (capped at MAX_RERANK_CALLS)
+  GUARD_SUGGESTIONS=atlas-vector   MongoDB Atlas Vector Search: Voyage embeddings stored in the collection
+                                   named by GUARD_VECTOR_COLLECTION, matched with $vectorSearch (vector_search.py)
 Both Voyage modes need VOYAGE_API_KEY and fall back to lexical on any error.
 
 Tuning without code changes: VOYAGE_MIN_SCORE (threshold for the active Voyage mode), VOYAGE_EMBED_MODEL,
@@ -104,7 +106,7 @@ class Embedder:
 
     def prepare(self, jobs):
         texts = []
-        for query, documents in jobs:
+        for query, documents, *_ in jobs:
             texts += [query, *documents]
         texts = list(dict.fromkeys(texts))[:MAX_TEXTS]
         if not texts:
@@ -116,6 +118,9 @@ class Embedder:
             raise ValueError("Voyage returned a different number of embeddings than requested")
         self.vectors = {text: item["embedding"] for text, item in zip(texts, data)}
         return {}
+
+    def source_of(self, query, document):
+        return self.source
 
     def score(self, query, document):
         if query not in self.vectors or document not in self.vectors:
@@ -135,7 +140,7 @@ class Reranker:
         self.scores = {}
 
     def prepare(self, jobs):
-        unique = list(dict.fromkeys((query, tuple(documents)) for query, documents in jobs if documents))
+        unique = list(dict.fromkeys((query, tuple(documents)) for query, documents, *_ in jobs if documents))
         for query, documents in unique[:MAX_RERANK_CALLS]:
             response = self.transport(f"{_base_url(self.env)}/rerank",
                                       {"query": query, "documents": list(documents), "model": self.model,
@@ -145,11 +150,19 @@ class Reranker:
                 self.scores[(query, documents[item["index"]])] = float(item["relevance_score"])
         return {"semantic_jobs": {"scored": min(len(unique), MAX_RERANK_CALLS), "total": len(unique)}}
 
+    def source_of(self, query, document):
+        return self.source
+
     def score(self, query, document):
         return self.scores.get((query, document))
 
 
-PROVIDERS = {"voyage": Embedder, "voyage-rerank": Reranker}
+def _atlas_vector(env, transport, collection=None):
+    from .vector_search import AtlasVectorSearch
+    return AtlasVectorSearch(env, transport, collection)
+
+
+PROVIDERS = {"voyage": Embedder, "voyage-rerank": Reranker, "atlas-vector": _atlas_vector}
 
 
 def _value_text(field, value):
@@ -184,7 +197,7 @@ def _rename_jobs(changes):
 
 
 def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mode: str = "lexical",
-           env=None, transport=None) -> dict:
+           env=None, transport=None, collection=None) -> dict:
     env = os.environ if env is None else env
     transport = transport or post_json
     changes = changes or []
@@ -196,24 +209,29 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
         if not env.get("VOYAGE_API_KEY"):
             status.update(status="fallback", fallback_reason="VOYAGE_API_KEY is not set")
         else:
-            provider = PROVIDERS[mode](env, transport)
-            jobs = [(_value_text(path, bad), [_value_text(path, t) for t in targets]) for _, path, bad, targets in value_jobs]
-            jobs += [(_rename_text(c["field"], c["old"]), [_rename_text(t["field"], t["new"]) for t in targets]) for c, targets in rename_jobs]
+            provider = PROVIDERS[mode](env, transport, collection) if mode == "atlas-vector" else PROVIDERS[mode](env, transport)
+            # (query, candidates, group): group is the field path, used as the vector-search pre-filter.
+            jobs = [(_value_text(path, bad), [_value_text(path, t) for t in targets], path) for _, path, bad, targets in value_jobs]
+            jobs += [(_rename_text(c["field"], c["old"]), [_rename_text(t["field"], t["new"]) for t in targets], "renames")
+                     for c, targets in rename_jobs]
             try:
-                status.update(provider.prepare(jobs))
                 status.update(provider="voyage", model=provider.model, method=provider.source)
+                status.update(provider.prepare(jobs))
             except FAILURES as exc:
                 provider = None
-                status.update(status="fallback", fallback_reason=f"Voyage request failed ({type(exc).__name__})")
+                status.pop("method", None)
+                status.update(provider="lexical", model=None, status="fallback",
+                              fallback_reason=f"Voyage request failed ({type(exc).__name__})")
 
     for entry, path, bad, targets in value_jobs:
         scored = []
         for target in targets:
             lexical = lexical_score(bad, target)
-            semantic = provider.score(_value_text(path, bad), _value_text(path, target)) if provider else None
+            query, candidate = _value_text(path, bad), _value_text(path, target)
+            semantic = provider.score(query, candidate) if provider else None
             options = [(lexical, "lexical")] if lexical >= LEXICAL_MIN else []
             if semantic is not None and semantic >= provider.minimum:
-                options.append((semantic, provider.source))
+                options.append((semantic, provider.source_of(query, candidate)))
             if options:
                 score, source = max(options, key=lambda o: (o[0], o[1] == "lexical"))
                 # Ties on the semantic score are broken by text similarity ("PG13" → "PG-13" over "PG").
@@ -226,9 +244,10 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
         for target in targets:
             score, source = lexical_score(change["field"].split(".")[-1], target["field"].split(".")[-1]), "lexical"
             if provider:
-                semantic = provider.score(_rename_text(change["field"], change["old"]), _rename_text(target["field"], target["new"]))
+                query, candidate = _rename_text(change["field"], change["old"]), _rename_text(target["field"], target["new"])
+                semantic = provider.score(query, candidate)
                 if semantic is not None and semantic > score:
-                    score, source = semantic, provider.source
+                    score, source = semantic, provider.source_of(query, candidate)
             if score >= (provider.minimum if source != "lexical" else LEXICAL_MIN):
                 candidates.append({"to": target["field"], "score": round(score, 3), "source": source})
         change["rename_candidates"] = sorted(candidates, key=lambda c: -c["score"])[:MAX_SUGGESTIONS]
@@ -237,9 +256,9 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
     return result
 
 
-def maybe_enrich(result: dict, schema: dict, changes: list[dict] | None, env=None, transport=None) -> dict:
+def maybe_enrich(result: dict, schema: dict, changes: list[dict] | None, env=None, transport=None, collection=None) -> dict:
     env = os.environ if env is None else env
     mode = (env.get("GUARD_SUGGESTIONS") or "").strip().lower()
     if mode not in ("lexical", *PROVIDERS):
         return result
-    return enrich(result, schema, changes, mode=mode, env=env, transport=transport)
+    return enrich(result, schema, changes, mode=mode, env=env, transport=transport, collection=collection)

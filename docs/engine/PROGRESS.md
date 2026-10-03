@@ -89,6 +89,31 @@ Outside these folders I only changed four **connector** files: `schema_guard/{tr
   - `scan.suggestions.semantic_jobs` shows how many values were scored.
 - **Tunable without code changes:** `VOYAGE_MIN_SCORE` (threshold for the active Voyage mode), `VOYAGE_RERANK_MODEL`.
 
+### MongoDB Atlas Vector Search (`vector_search.py`, `GUARD_SUGGESTIONS=atlas-vector`)
+
+**How it works:**
+
+1. One Voyage AI embeddings call vectorises the allowed values and the bad values.
+2. The allowed-value vectors are upserted into a **dedicated vocabulary collection** named explicitly by `GUARD_VECTOR_COLLECTION` (`database.collection`).
+3. A `vectorSearch` index (`schema_guard_suggestions`: cosine, pre-filter fields `group` and `model`) is created if missing, and the engine waits until it's queryable.
+4. Each bad value runs **`$vectorSearch`** (first stage, pre-filtered to its field, `numCandidates` at least 20× `limit`, as MongoDB guidance says).
+5. `vectorSearchScore` is converted back to cosine, so thresholds match the in-memory mode.
+
+**Write boundary:**
+- Nothing is written unless `GUARD_VECTOR_COLLECTION` is set.
+- It refuses to use the scanned collection.
+- Bad values are only query vectors; they are never stored.
+- The vocabulary holds only allowed values and field paths.
+
+**Fallback:**
+- With no Atlas Search (e.g. local Community `mongod`), the index still building, or a dimension mismatch, it uses in-memory cosine on the same vectors.
+- `scan.suggestions` records the reason. Renames always use the in-memory vectors.
+
+**Verification:**
+- Unit tests with a fake Atlas cover the index definition, the pipeline shape, the score conversion, idempotent upserts, waiting for the index, and every fallback.
+- On the local `mongod`, tests prove the write boundary and the fallback.
+- The live Atlas test is opt-in: `SCHEMA_GUARD_ATLAS_VECTOR_URI` plus `VOYAGE_API_KEY`, on a disposable cluster.
+
 ### Stretch goals (added later the same day)
 
 - **Bad values for array items.** `genres[]`, `cast[].name` and enum lists (`tags[]`) now get `distinct_values` too.
@@ -113,9 +138,9 @@ Outside these folders I only changed four **connector** files: `schema_guard/{tr
 
 | Suite | Result |
 | --- | --- |
-| Whole repo `pytest -q` | **187 passed**, 1 skipped (the live Voyage check needs a key) |
-| `tests/engine` unit (translator 36, JSON Schema 32, diff 14, specs 25, compat 7, suggest 20) | all pass |
-| `tests/engine/integration` on a real `mongod` 6.0.21 (local, throwaway) | **48 passed** (34 core + 14 stretch) |
+| Whole repo `pytest -q` | **213 passed**, 2 skipped (the live Voyage and live Atlas Vector Search checks need keys) |
+| `tests/engine` unit (translator 36, JSON Schema 32, diff 14, specs 25, compat 7, suggest 20, vector search 23) | all pass |
+| `tests/engine/integration` on a real `mongod` 6.0.21 (local, throwaway) | **50 passed** (34 core + 14 stretch + 2 vector), 1 live-Atlas test skipped |
 | Starter `tests/test_workflow.py` | 5 passed, unchanged |
 | `npm --prefix frontend run build` | passes; same bundle as before |
 | CLI with JSON schema files | `7 of 12` demo result, the same as with Python models |
@@ -201,6 +226,7 @@ Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is n
 5. **`fixes.py` (your file):** in `make_plan`, skip reasons where `reason.get("location", "field") != "field"` when creating default operations. Nested reasons share the root `field`, so a root default would otherwise be labelled with a nested count. Consider offering mappings only for `distinct_values` with `mappable: true`.
 6. **`demo.py` (optional):** call `impact.summarize_values(...)` per reason, so fixture reports also carry `distinct_values` and the UI can build mapping controls offline.
 7. **Voyage AI integration.** See the separate brief, [BRIEF_PERSON3_AI.md](BRIEF_PERSON3_AI.md).
+   - Includes **verifying Atlas Vector Search** on a disposable Atlas cluster: run `tests/engine/integration/test_engine_vector_real.py` with `SCHEMA_GUARD_ATLAS_VECTOR_URI` and `VOYAGE_API_KEY` set.
 8. **`/api/validator` (your new endpoint), nice to have:**
    - MongoDB's schema-validation guidance suggests `validationLevel: "moderate"` with `"warn"` when adding rules to a collection that already has bad documents. Today the endpoint uses `"strict"`.
    - The engine's `load_collection_validator()` can read the collection's *current* validator and settings, so the preview could show "current vs proposed" before any `collMod`.
