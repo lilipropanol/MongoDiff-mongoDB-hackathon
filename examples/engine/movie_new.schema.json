@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Movie (new) - e.g. exported from a TypeScript/Zod, Java or Go model",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "year": { "type": "integer" },
+    "runtime": { "type": "integer" },
+    "rated": { "type": "string", "enum": ["G", "PG", "PG-13", "R"] }
+  },
+  "required": ["title", "year", "runtime", "rated"]
+}

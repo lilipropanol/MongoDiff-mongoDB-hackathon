@@ -175,6 +175,27 @@ def test_demo_apply_rejects_atlas_report_without_constructing_mongo_client(clien
     assert not constructed
 
 
+def test_demo_restore_and_validator_preview(client):
+    session = str(uuid4())
+    initial = client.post("/api/analyze", json={"session_id": session, "source": "demo"}).json()
+    plan = client.post(f"/api/runs/{initial['id']}/plan", json={
+        "session_id": session,
+        "defaults": {"rated": "PG", "runtime": 90},
+        "mappings": {},
+    }).json()
+    applied = client.post("/api/demo/apply", json={"session_id": session, "plan_id": plan["id"]}).json()
+    assert applied["demo_backup_available"] is True
+
+    restored = client.post("/api/demo/restore", json={"session_id": session}).json()
+    assert restored["failing"] == 7
+    assert restored["preexisting"] == 2
+    assert restored["newly_failing"] == 5
+
+    validator = client.get("/api/validator", params={"session_id": session, "run_id": restored["id"]}).json()
+    assert validator["validationAction"] == "warn"
+    assert "$jsonSchema" in validator["validator"]
+
+
 def test_unconfigured_atlas_is_actionable(client):
     response = client.post("/api/analyze", json={"session_id": str(uuid4()), "source": "atlas"})
     assert response.status_code == 409

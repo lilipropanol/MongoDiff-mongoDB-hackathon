@@ -1,0 +1,422 @@
+{
+  "old_schema": {
+    "bsonType": "object",
+    "properties": {
+      "title": {
+        "bsonType": "string"
+      },
+      "year": {
+        "bsonType": [
+          "int",
+          "long"
+        ]
+      },
+      "runtime": {
+        "bsonType": [
+          "int",
+          "long",
+          "null"
+        ]
+      }
+    },
+    "required": [
+      "title",
+      "year"
+    ]
+  },
+  "new_schema": {
+    "bsonType": "object",
+    "properties": {
+      "title": {
+        "bsonType": "string"
+      },
+      "year": {
+        "bsonType": [
+          "int",
+          "long"
+        ]
+      },
+      "runtime": {
+        "bsonType": [
+          "int",
+          "long"
+        ]
+      },
+      "rated": {
+        "enum": [
+          "G",
+          "PG",
+          "PG-13",
+          "R"
+        ]
+      }
+    },
+    "required": [
+      "title",
+      "year",
+      "runtime",
+      "rated"
+    ]
+  },
+  "reason_specs_new": [
+    {
+      "field": "title",
+      "reason": "missing",
+      "query": {
+        "title": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "title",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$title"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "title",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$title"
+                },
+                [
+                  "string",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "missing",
+      "query": {
+        "year": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$year"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$year"
+                },
+                [
+                  "int",
+                  "long",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "field": "runtime",
+      "reason": "missing",
+      "query": {
+        "runtime": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "runtime",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$runtime"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "runtime",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$runtime"
+                },
+                [
+                  "int",
+                  "long",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "field": "rated",
+      "reason": "missing",
+      "query": {
+        "rated": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "rated",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$rated"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "rated",
+      "reason": "value_not_allowed",
+      "query": {
+        "$and": [
+          {
+            "rated": {
+              "$exists": true
+            }
+          },
+          {
+            "$expr": {
+              "$ne": [
+                {
+                  "$type": "$rated"
+                },
+                "null"
+              ]
+            }
+          },
+          {
+            "$nor": [
+              {
+                "$jsonSchema": {
+                  "properties": {
+                    "rated": {
+                      "enum": [
+                        "G",
+                        "PG",
+                        "PG-13",
+                        "R"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "reason_specs_old": [
+    {
+      "field": "title",
+      "reason": "missing",
+      "query": {
+        "title": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "title",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$title"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "title",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$title"
+                },
+                [
+                  "string",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "missing",
+      "query": {
+        "year": {
+          "$exists": false
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "null_not_allowed",
+      "query": {
+        "$expr": {
+          "$eq": [
+            {
+              "$type": "$year"
+            },
+            "null"
+          ]
+        }
+      }
+    },
+    {
+      "field": "year",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$year"
+                },
+                [
+                  "int",
+                  "long",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "field": "runtime",
+      "reason": "wrong_type",
+      "query": {
+        "$expr": {
+          "$not": [
+            {
+              "$in": [
+                {
+                  "$type": "$runtime"
+                },
+                [
+                  "int",
+                  "long",
+                  "missing",
+                  "null"
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "changes": [
+    {
+      "field": "rated",
+      "kind": "added",
+      "new": {
+        "enum": [
+          "G",
+          "PG",
+          "PG-13",
+          "R"
+        ]
+      },
+      "required": true
+    },
+    {
+      "field": "runtime",
+      "kind": "type_or_constraint_changed",
+      "old": {
+        "bsonType": [
+          "int",
+          "long",
+          "null"
+        ]
+      },
+      "new": {
+        "bsonType": [
+          "int",
+          "long"
+        ]
+      }
+    },
+    {
+      "field": "runtime",
+      "kind": "became_required",
+      "new": {
+        "bsonType": [
+          "int",
+          "long"
+        ]
+      }
+    }
+  ]
+}
