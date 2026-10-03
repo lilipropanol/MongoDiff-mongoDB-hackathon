@@ -20,6 +20,8 @@ class SchemaTranslator:
         decorators = model.__pydantic_decorators__
         if decorators.field_validators or decorators.model_validators or decorators.validators or decorators.root_validators:
             raise TypeError(f"Unsupported custom validator on {model.__name__}")
+        if decorators.field_serializers or decorators.model_serializers:
+            raise TypeError(f"Unsupported custom serializer on {model.__name__}")
         if model.model_config.get("extra") == "forbid":
             raise TypeError("extra='forbid' is not supported yet (MongoDB documents also contain _id)")
         properties, required = {}, []
@@ -28,7 +30,13 @@ class SchemaTranslator:
                 raise TypeError(f"Unsupported constraints on field {name}: {field.metadata}")
             if field.validation_alias is not None and not isinstance(field.validation_alias, str):
                 raise TypeError(f"Unsupported AliasPath/AliasChoices on {name}")
+            validation_key = field.validation_alias or field.alias or name
             key = field.serialization_alias or field.alias or name
+            if validation_key != key:
+                raise TypeError(
+                    f"Unsupported alias mismatch on {name}: input name {validation_key!r} "
+                    f"differs from stored name {key!r}"
+                )
             if key.startswith("$") or "." in key:
                 raise TypeError(f"Unsupported stored field name: {key}")
             properties[key] = self.field_schema(field.annotation)

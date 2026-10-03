@@ -57,6 +57,8 @@ Open **http://127.0.0.1:8000**. API documentation: **http://127.0.0.1:8000/docs*
 
 For UI development, run `schema-guard-server` in one terminal and `cd frontend && npm run dev` in another. Open http://127.0.0.1:5173; Vite proxies `/api`, `/docs`, and `/openapi.json` to port 8000. If you change the API port, update those proxy targets in `frontend/vite.config.ts`, or use the built dashboard on the new API port. Restart the Python server after changing backend code, or use `.venv/bin/uvicorn schema_guard.server:app --reload --host 127.0.0.1 --port 8000`.
 
+The managed Hoplite preview installs Python/frontend dependencies and builds the dashboard through `.hoplite/settings.json`. It explicitly runs with `MONGODB_URI=''` for isolated demo checks, without modifying `.env`. Use the local server commands above for configured Atlas analysis.
+
 The public feature name is **mongoDiff**. Existing commands (`schema-guard`, `schema-guard-server`) and the Python package (`schema_guard`) retain their starter identifiers.
 
 ## Frontend layout
@@ -141,10 +143,10 @@ Core checks cover required-vs-nullable behavior, aliases, unsupported constraint
 - Pydantic v2: `str`, `int`, `float`, `bool`, `datetime`, `list[T]`, `Optional[T]`, `Literal[...]`, nested models. Unsupported types and field constraints are reported instead of guessed.
 - `Optional[T]` without a default is required but nullable. Defaults make a field optional; they are not silently persisted.
 - Ints accept BSON `int` and `long`. Floats accept BSON numeric types; Pydantic can still have different runtime coercion behavior.
-- Aliases are used as stored field names. Complex validation aliases, dotted/dollar field names, custom validators, and `extra='forbid'` are unsupported.
+- Aliases are used as stored field names. Input and serialization aliases must agree. Complex validation aliases, dotted/dollar field names, custom validators/serializers, and `extra='forbid'` are unsupported and rejected.
 - Nested schema validation works; nested changes are grouped under the root field rather than individual paths. Recursive models are unsupported.
 - Repair candidates cover explicit defaults, string-to-integer conversions, and string-keyed explicit value mappings. Numeric-key mappings, inferred renames, and removals need further design.
-- Custom serializers and other Pydantic configuration are not fully audited. The translator covers the listed stored-schema subset, not every behavior of an application model.
+- Other Pydantic configuration is not fully audited. The translator covers the listed stored-schema subset, not every behavior of an application model.
 - Constraint translation, default warnings, CI exit policies, Beanie-specific types, durable backups, live repairs, schema versioning, authentication, retention limits, and a production deployment remain unfinished.
 - This local prototype binds to `127.0.0.1`. Session identifiers are isolation conveniences, not authentication. Add authentication and authorization before deploying it for a team.
 

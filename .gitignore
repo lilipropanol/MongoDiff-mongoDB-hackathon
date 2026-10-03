@@ -13,5 +13,7 @@ frontend/dist/
 *.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
+.hoplite/artifacts/
+.hoplite/runtime/
 .env.*
 !.env.example

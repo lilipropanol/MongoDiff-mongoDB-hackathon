@@ -2,6 +2,17 @@
 
 These are checks completed on the starter, not proof that future branch changes or a real Atlas deployment work. Documentation-only edits do not change those results. Recheck affected behavior after implementation changes and run the combined checks after merging.
 
+## Continuation checks — 2026-10-03
+
+The interrupted mongoDiff UI work was reviewed against the running, demo-only managed preview. The Cards and simplified document Modals were already present in the latest commit; this continuation fixes collection-filter labeling, mobile explorer focus/open-state announcements/Escape handling, and the missing browser icon. The workspace initials now match mongoDiff.
+
+- `.venv/bin/python -m pytest -q`: **12 passed**. New checks cover mismatched input/output aliases, matching aliases, field/model serializers (including nested models), and refusal to apply an Atlas plan through the fixture endpoint without constructing a MongoDB client.
+- `npm --prefix frontend run build`: **passed**. The existing large-bundle warning remains; no dependency upgrades were made.
+- `node frontend/scripts/smoke.mjs http://127.0.0.1:8000`: **passed**. In addition to the existing flow below, this now checks unexpected console errors, missing/null document inspection at 375/768/1280px, and mobile explorer keyboard focus and Escape. The expected unconfigured-Atlas 409 is excluded from console-error assertions, not from the error-state checks.
+- Managed setup is versioned in `.hoplite/settings.json`; the preview overrides `MONGODB_URI` only for its process and never edits `.env`.
+
+Atlas integration and live writes remain outside these checks. Atlas examples are count-bounded, not payload-size-bounded; large field values can still exceed MongoDB aggregation result limits. This needs real-server verification alongside the other Atlas limits below.
+
 ## Current frontend checks
 
 The Atlas/LeafyGreen redesign passed `npm --prefix frontend run build` and `node frontend/scripts/smoke.mjs http://127.0.0.1:8002` against an isolated API with `MONGODB_URI=''`.

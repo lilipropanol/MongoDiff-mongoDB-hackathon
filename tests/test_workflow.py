@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_serializer
 
 from schema_guard import server
 from schema_guard.demo import matches_schema
@@ -33,6 +33,32 @@ def test_optional_and_alias_contract():
     assert not matches_schema({"_id": "x", "tags": [9], "nullable_but_required": 1}, schema)
 
 
+@pytest.mark.parametrize(
+    "alias_options",
+    [
+        {"validation_alias": "input_name"},
+        {"serialization_alias": "stored_name"},
+        {"alias": "stored_name", "validation_alias": "input_name"},
+        {"validation_alias": "input_name", "serialization_alias": "stored_name"},
+    ],
+)
+def test_mismatched_input_and_stored_aliases_are_rejected(alias_options):
+    class Mismatched(BaseModel):
+        value: str = Field(**alias_options)
+
+    with pytest.raises(TypeError, match="Unsupported alias mismatch"):
+        SchemaTranslator().translate(Mismatched)
+
+
+def test_matching_aliases_are_supported():
+    class Matching(BaseModel):
+        mongo_id: str = Field(alias="_id")
+        value: str = Field(validation_alias="stored", serialization_alias="stored")
+
+    schema = SchemaTranslator().translate(Matching)
+    assert schema["properties"].keys() == {"_id", "stored"}
+
+
 def test_unsupported_constraints_are_explicit():
     class Constrained(BaseModel):
         runtime: int = Field(gt=0)
@@ -50,6 +76,33 @@ def test_unsupported_constraints_are_explicit():
 
     with pytest.raises(TypeError, match="Unsupported custom validator"):
         SchemaTranslator().translate(Custom)
+
+
+def test_custom_serializers_are_rejected_including_nested_models():
+    class FieldSerialized(BaseModel):
+        value: int
+
+        @field_serializer("value")
+        def serialize_value(self, value):
+            return str(value)
+
+    class ModelSerialized(BaseModel):
+        value: int
+
+        @model_serializer
+        def serialize_model(self):
+            return {"value": str(self.value)}
+
+    class Parent(BaseModel):
+        nested: FieldSerialized
+
+    translator = SchemaTranslator()
+    with pytest.raises(TypeError, match="Unsupported custom serializer"):
+        translator.translate(FieldSerialized)
+    with pytest.raises(TypeError, match="Unsupported custom serializer"):
+        translator.translate(ModelSerialized)
+    with pytest.raises(TypeError, match="Unsupported custom serializer"):
+        translator.translate(Parent)
 
 
 def test_demo_repair_and_rescan(client):
@@ -91,6 +144,35 @@ def test_invalid_decisions_and_stale_plan(client):
     client.post("/api/analyze", json={"session_id": session})
     assert client.post("/api/demo/apply", json={"session_id": session, "plan_id": plan["id"]}).status_code == 409
     assert client.post(path, json={"session_id": str(uuid4())}).status_code == 404
+
+
+def test_demo_apply_rejects_atlas_report_without_constructing_mongo_client(client, monkeypatch):
+    session = str(uuid4())
+    report = client.post("/api/analyze", json={"session_id": session}).json()
+    atlas_report = {**report, "source": "atlas"}
+    server.save_report(atlas_report)
+
+    planned = client.post(
+        f"/api/runs/{report['id']}/plan", json={"session_id": session}
+    )
+    assert planned.status_code == 200
+    plan = planned.json()
+
+    constructed = False
+
+    def unexpected_mongo_client(*args, **kwargs):
+        nonlocal constructed
+        constructed = True
+        raise AssertionError("demo apply must not construct a MongoClient")
+
+    monkeypatch.setattr(server, "MongoClient", unexpected_mongo_client)
+    response = client.post(
+        "/api/demo/apply", json={"session_id": session, "plan_id": plan["id"]}
+    )
+
+    assert response.status_code == 403
+    assert "only modifies demo fixtures" in response.json()["detail"]
+    assert not constructed
 
 
 def test_unconfigured_atlas_is_actionable(client):

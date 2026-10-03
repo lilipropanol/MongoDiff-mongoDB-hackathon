@@ -16,8 +16,18 @@ await context.addInitScript(() => {
 });
 const page = await context.newPage();
 const errors = [],
+  consoleErrors = [],
   plans = [];
 page.on("pageerror", (error) => errors.push(error.message));
+page.on("console", (message) => {
+  if (message.type() !== "error") return;
+  if (
+    message.location().url.endsWith("/api/analyze") &&
+    message.text().includes("409 (Conflict)")
+  )
+    return;
+  consoleErrors.push(message.text());
+});
 page.on("response", async (response) => {
   if (response.url().endsWith("/plan") && response.ok())
     plans.push(await response.json());
@@ -265,9 +275,24 @@ try {
       false,
       `${width}px overflow`,
     );
-    for (const name of ["View validator", "Run history"]) {
+    for (const name of [
+      "View validator",
+      "Run history",
+      "Details for runtime: Missing or empty value",
+    ]) {
       await openDetails(name);
       await accessible(`${width}px ${name}`);
+      assert.equal(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth > innerWidth,
+        ),
+        false,
+        `${width}px ${name} overflow`,
+      );
+      if (name.startsWith("Details")) {
+        await page.getByText("Missing from document", { exact: true }).waitFor();
+        assert.match(await page.getByRole("dialog").innerText(), /null/);
+      }
       await page
         .getByRole("button", { name: "Close modal", exact: true })
         .click();
@@ -277,6 +302,29 @@ try {
         path: "/tmp/schema-guard-mobile.png",
         fullPage: true,
       });
+      await page.getByLabel("Open collection explorer").click();
+      assert.equal(
+        await page.getByLabel("Open collection explorer").getAttribute("aria-expanded"),
+        "true",
+      );
+      assert.equal(
+        await page.getByRole("textbox", { name: "Filter collections", exact: true })
+          .evaluate((element) => element === document.activeElement),
+        true,
+        "Opening the explorer moves focus to its filter",
+      );
+      await accessible("mobile collection explorer");
+      await page.keyboard.press("Escape");
+      assert.equal(
+        await page.getByLabel("Open collection explorer").getAttribute("aria-expanded"),
+        "false",
+      );
+      assert.equal(
+        await page.getByLabel("Open collection explorer")
+          .evaluate((element) => element === document.activeElement),
+        true,
+        "Closing the explorer restores focus to its trigger",
+      );
       await page.getByLabel("Open collection explorer").click();
       await page.getByLabel("Close collection explorer").click();
     }
@@ -294,6 +342,7 @@ try {
   );
   await accessible("Atlas setup error");
   assert.deepEqual(errors, []);
+  assert.deepEqual(consoleErrors, [], "No unexpected browser console errors");
   console.log(
     "Passed: simplified content, three accurate issue rows, no forms, displayed script matches API operations, reviewed fix 7→0, reset, inspection, supporting dialogs, themes, accessibility, and 375/768/1280px layouts.",
   );

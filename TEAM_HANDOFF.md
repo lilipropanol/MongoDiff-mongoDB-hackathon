@@ -50,6 +50,16 @@ Remaining gaps:
 How the UI owner can try it:
 ```
 
+### Interrupted UI session continuation
+
+- Branch: `hoplite/poseidonia-c1e6cab1`.
+- Completed: reviewed the existing mongoDiff Cards/Modals and source across UI, API, CLI, and engine; fixed LeafyGreen filter labeling, mobile explorer keyboard focus/Escape/open state, and browser icon/workspace initials; added repeatable demo-only managed preview setup.
+- Safety fixes: reject mismatched input/stored aliases and custom serializers instead of generating a misleading schema. Added regression coverage proving the fixture apply endpoint rejects Atlas plans.
+- API/report changes: none. Unsupported model configurations now fail explicitly.
+- Checks: 12 Python tests, production frontend build, and full Chrome/Axe smoke passed, including fixture repair 7 → 0, reset, themes, supporting modals, and 375/768/1280px inspection.
+- Remaining: the live Atlas/repair/integration roadmap below is unchanged. Large Atlas example payloads still need bounds and real-server verification; no MongoDB writes were added or executed.
+- Try it: open the managed preview, or run the isolated API/browser commands in `docs/VALIDATION.md`.
+
 ## Person 1 — UI tasks
 
 ### Finish first

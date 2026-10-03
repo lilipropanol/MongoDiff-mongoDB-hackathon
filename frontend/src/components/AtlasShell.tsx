@@ -39,6 +39,13 @@ export function AtlasShell({
   const [expanded, setExpanded] = useState(true);
   const [explorerOpen, setExplorerOpen] = useState(false);
   const tabsRef = useRef<HTMLDivElement>(null);
+  const explorerRef = useRef<HTMLElement>(null);
+  const explorerToggleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!explorerOpen) return;
+    explorerRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    return () => explorerToggleRef.current?.focus();
+  }, [explorerOpen]);
   useEffect(() => {
     const tablist =
       tabsRef.current?.querySelector<HTMLElement>('[role="tablist"]');
@@ -110,7 +117,7 @@ export function AtlasShell({
             <Icon aria-hidden glyph="Apps" />
           </span>
           <span className="user-avatar" aria-label="Local prototype workspace">
-            SG
+            MD
           </span>
         </div>
       </header>
@@ -136,8 +143,16 @@ export function AtlasShell({
           </span>
         </nav>
         <aside
+          id="collection-explorer"
+          ref={explorerRef}
           className={`collection-explorer ${explorerOpen ? "explorer-open" : ""}`}
           aria-label="Collection explorer"
+          onKeyDown={(event) => {
+            if (explorerOpen && event.key === "Escape") {
+              event.preventDefault();
+              setExplorerOpen(false);
+            }
+          }}
         >
           <div className="explorer-heading">
             <h2>Data Explorer</h2>
@@ -164,8 +179,12 @@ export function AtlasShell({
             <Icon aria-hidden glyph="ChevronDown" />
           </div>
           <div className="explorer-search">
+            <span id="collection-filter-label" className="sr-only">
+              Filter collections
+            </span>
             <TextInput
-              aria-label="Filter collections"
+              aria-labelledby="collection-filter-label"
+              optional
               placeholder="Filter collections…"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -244,8 +263,11 @@ export function AtlasShell({
             <div className="collection-heading">
               <div className="collection-path">
                 <IconButton
+                  ref={explorerToggleRef}
                   className="explorer-toggle"
                   aria-label="Open collection explorer"
+                  aria-expanded={explorerOpen}
+                  aria-controls="collection-explorer"
                   onClick={() => setExplorerOpen(true)}
                 >
                   <Icon aria-hidden glyph="Menu" />
