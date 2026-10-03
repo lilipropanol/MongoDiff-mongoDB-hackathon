@@ -9,7 +9,7 @@ The engine can suggest fixes for bad values and renamed fields:
 - `"PG13"` → `"PG-13"` for the `rated` field
 - `runtime` → `duration_minutes` as a possible rename
 
-There are two Voyage AI modes, plus offline text matching as a fallback. **They only suggest.** Suggestions never become plan decisions and never change counts; tests prove both.
+There are three Voyage AI modes, including MongoDB Atlas Vector Search, plus offline text matching as a fallback. **They only suggest.** Suggestions never become plan decisions and never change counts; tests prove both.
 
 | Mode (`GUARD_SUGGESTIONS=`) | How it works | Requests |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ There are two Voyage AI modes, plus offline text matching as a fallback. **They 
 ## Setup (`.env`, which is git-ignored, so never commit keys)
 
 ```dotenv
-GUARD_SUGGESTIONS=voyage            # or voyage-rerank / lexical
+GUARD_SUGGESTIONS=atlas-vector      # or voyage / voyage-rerank / lexical
 VOYAGE_API_KEY=...
 # Optional tuning, no code changes needed:
 VOYAGE_MIN_SCORE=0.6                # threshold for the active Voyage mode (defaults: embed 0.6, rerank 0.5)
