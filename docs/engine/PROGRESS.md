@@ -135,9 +135,21 @@ GUARD_SUGGESTIONS=lexical .venv/bin/schema-guard-server   # dashboard with offli
 - `unclassified` is still computed from root reasons only, so its meaning is unchanged.
 - Not yet tested against MongoDB 8.x (Atlas). The local server is 6.0.21.
 
+## Merge check with Person 3's `fixes/backend` (2026-10-03)
+
+- **Person 3's commit** `cee7231` ("complete reviewed backend restore contract") touches `fixes.py`, `server.py`, `tests/test_workflow.py` and `TEAM_HANDOFF.md`. None of those overlap with the engine files.
+- **What it adds:**
+  - `execution_contract` on plans (schema fingerprints, a 30-minute expiry)
+  - `/api/demo/restore`
+  - `/api/validator` (a `collMod` preview with `validationAction: "warn"`)
+- **Trial merge** in a scratch copy, which was then deleted: **no conflicts; 164 passed, 1 skipped**. The engine branch itself was not changed.
+- **Still open from their side:**
+  - The handoff says Atlas analysis was "verified against the live sample_mflix.movies collection", but no counts are recorded anywhere.
+  - None of the engine handoff items below were done yet. They hadn't seen this list.
+
 ## Handoff: for Person 3 (including Atlas)
 
-Person 3 owns Atlas and their own files, so I didn't do any of this.
+Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is new after reading their branch.
 
 1. **Atlas live verification (read-only).**
    - Load `sample_mflix` and use a database user with only the `read` role.
@@ -159,6 +171,9 @@ Person 3 owns Atlas and their own files, so I didn't do any of this.
 7. **Voyage live check.** Set `VOYAGE_API_KEY` and `SCHEMA_GUARD_LIVE_VOYAGE=1` and run `pytest -q tests/engine/test_engine_suggest.py`.
    - Keys created in the Atlas console may need a different `VOYAGE_API_URL`; check the current docs.
    - Tune `VOYAGE_MIN` in `suggest.py` if suggestions are too eager or too shy on real `rated` values.
+8. **`/api/validator` (your new endpoint), nice to have:**
+   - MongoDB's schema-validation guidance suggests `validationLevel: "moderate"` with `"warn"` when adding rules to a collection that already has bad documents. Today the endpoint uses `"strict"`.
+   - The engine's `load_collection_validator()` can read the collection's *current* validator and settings, so the preview could show "current vs proposed" before any `collMod`.
 
 ## Handoff: for Person 1 (UI and integration)
 
