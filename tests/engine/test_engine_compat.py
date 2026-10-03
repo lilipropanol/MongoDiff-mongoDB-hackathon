@@ -62,6 +62,8 @@ def test_build_report_keeps_existing_keys():  # U-C2
     report = build_report(ENGINE_IMPACT, [], SNAPSHOT["old_schema"], SNAPSHOT["new_schema"], "db", "movies", "atlas")
     assert (report["total_docs"], report["failing"], report["preexisting"], report["newly_failing"]) == (4, 3, 1, 2)
     assert report["reasons"] is ENGINE_IMPACT["reasons"]  # new per-reason keys flow through unchanged
+    assert report["warnings"] == ENGINE_IMPACT["warnings"]
+    assert report["scan"] == ENGINE_IMPACT["scan"]
 
 
 def test_make_plan_accepts_engine_reasons_including_nested_paths():  # U-C1 (F1)

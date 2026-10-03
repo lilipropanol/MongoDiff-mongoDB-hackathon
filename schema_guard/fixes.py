@@ -1,6 +1,12 @@
 """Reviewable plans only. Live MongoDB execution is a separate task."""
 
+import hashlib
 import json
+
+
+def _schema_fingerprint(schema: dict) -> str:
+    payload = json.dumps(schema, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
 def make_plan(report: dict, defaults: dict, mappings: dict) -> dict:
@@ -42,4 +48,19 @@ def make_plan(report: dict, defaults: dict, mappings: dict) -> dict:
         script.append(f"// {op['description']}\nmovies.updateMany({json.dumps(op['filter'])}, {json.dumps(op['update'])});")
     return {"run_id": report["id"], "operations": operations, "unresolved": unresolved,
             "script": "\n\n".join(script), "live_execution_available": False,
+            "execution_contract": {
+                "requires_backup": True,
+                "reviewed": True,
+                "schema_fingerprint": {
+                    "database": report.get("database"),
+                    "collection": report.get("collection"),
+                    "old_schema": _schema_fingerprint(report.get("old_schema", {})),
+                    "new_schema": _schema_fingerprint(report.get("new_schema", {})),
+                },
+                "one_reviewed_plan_per_execution": True,
+                "notes": [
+                    "Plan generation is review-only until a live apply contract is approved.",
+                    "Live writes require a durable backup and fresh verification scan before execution.",
+                ],
+            },
             "notes": ["Candidate operations are not a guarantee that all affected documents are repairable.", "Live writes, backups, rollback, and validator application require further implementation."]}

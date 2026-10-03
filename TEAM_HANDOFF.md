@@ -39,13 +39,29 @@ Suggested branches: `ui/decision-flow`, `engine/atlas-analysis`, `backend/review
 Each pushed branch should include a short handoff:
 
 ```text
-Branch:
-Completed behavior:
-Changed files:
-API/report changes (or none):
-Checks run and results:
-Remaining gaps:
-How the UI owner can try it:
+Branch: fixes/backend
+Completed behavior: Added demo backup/restore flow, stale-plan enforcement, reviewed execution metadata, and a validator preview endpoint. Atlas analysis remains read-only and verified against the live sample_mflix.movies collection.
+Changed files: schema_guard/fixes.py, schema_guard/server.py, tests/test_workflow.py
+API/report changes (or none): Added execution_contract metadata to plans, /api/demo/restore, and /api/validator; existing /api/analyze and /api/demo/apply semantics remain stable.
+Checks run and results: .venv\Scripts\python.exe -m pytest -q -> 6 passed, 1 warning.
+Remaining gaps: live apply against a disposable MongoDB collection, durable backup persistence beyond demo memory, MongoDB-backed history, and UI wiring for live confirmation.
+How the UI owner can try it: run the server, use demo analysis/apply flow, then call restore to validate the review/undo path; keep live Atlas writes disabled until the next contract is approved.
+```
+
+### Final integration note
+
+Person 1 is currently working on the local UI branch and should push their branch before the final merge. The backend and engine branches are already integrated on `ui/integration` and verified together on Python. The UI owner should merge the final UI branch into the same integration branch only after confirming the shared contract in `docs/API.md`, `frontend/src/types.ts`, and the report fields produced by the engine/backend. The final sequence is: push UI branch, merge UI into `ui/integration`, rerun the Python checks and the frontend build, then run the smoke browser pass with a Chrome/Chromium binary available locally. Do not enable live MongoDB writes until the reviewed backup/execute/restore contract is validated on a disposable collection.
+
+### Shared integration handoff: backend + engine
+
+```text
+Branch: ui/integration
+Completed behavior: Backend + engine work has been merged and verified together. Atlas analysis is read-only and works against the configured sample_mflix.movies collection, the reviewed demo repair flow is restored safely, and the plan contract includes backup/staleness metadata. Python checks pass on the integrated branch.
+Changed files: schema_guard/fixes.py, schema_guard/server.py, tests/test_workflow.py, schema_guard/impact.py, schema_guard/translator.py, schema_guard/diff.py, plus the engine branch additions under schema_guard/engine/ and docs/engine/.
+API/report changes (or none): Shared API contract remains read-only for Atlas; added execution_contract metadata to plans, /api/demo/restore, and /api/validator. No live writable Atlas endpoint is enabled yet.
+Checks run and results: .venv\Scripts\python.exe -m pytest -q -> 130 passed, 35 skipped, 1 warning. npm --prefix frontend run build -> passed after installing frontend dependencies. Browser smoke remains blocked only by missing Chrome/Chromium in the environment.
+Remaining gaps: final UI merge, Chrome/Chromium runtime for smoke test, and any contract adjustments required once Person 1 pushes the UI branch.
+How the UI owner can try it: pull the integration branch, merge the UI branch into it, then run the app with the same local .env and verify the demo and Atlas analysis loops. Keep live writes disabled until the disposable-collection backup and restore flow is validated.
 ```
 
 ## Person 1 — UI tasks
@@ -60,6 +76,16 @@ How the UI owner can try it:
 - [ ] Coordinate a live-apply confirmation UI only after Person 3 delivers its backup/execute contract.
 - [ ] Recheck keyboard navigation, focus management, dialog cancellation, mobile layout, and error recovery after your UI changes. The starter's existing flow has already passed browser checks.
 - [ ] After contributors push, merge their branches, resolve cross-component mismatches, and verify the full app and repeatable demo.
+
+### AI suggestion UI (opt-in follow-up)
+
+- Keep suggestions visibly advisory. In Impact, show each candidate beside its affected distinct value with the target, score, and source; show rename candidates alongside the relevant model change.
+- Let a user select a candidate to populate the explicit mapping decision in Fixes. The user must review and generate the plan; never auto-select a mapping or apply a repair.
+- Show whether suggestions are disabled, using Voyage, or using lexical fallback. If the Voyage request fails, keep the scan usable and label the fallback rather than presenting it as an AI result.
+- Preserve opt-in and disclose that bounded bad values, allowed values, and field names are sent to MongoDB AI. Do not send examples, document IDs, full documents, or connection details.
+- Coordinate the contract first: `build_report` must preserve `scan.suggestions`, and `frontend/src/types.ts` must type `distinct_values[].suggestions`, `changes[].rename_candidates`, and the scan status before the views can render them.
+
+Acceptance: candidates are available only where applicable, a selected candidate becomes an explicit human decision, status and fallback are clear, and no suggestion changes counts or executes a write.
 
 ### Acceptance
 

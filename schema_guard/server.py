@@ -1,7 +1,7 @@
 """Local dashboard API. Atlas credentials and trusted model paths stay on the server."""
 
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import logging
 import os
@@ -50,6 +50,10 @@ class ApplyRequest(BaseModel):
     plan_id: UUID
 
 
+class RestoreRequest(BaseModel):
+    session_id: UUID
+
+
 def report_dir():
     path = Path(os.getenv("GUARD_REPORT_DIR", str(ROOT / "reports")))
     path.mkdir(parents=True, exist_ok=True)
@@ -85,11 +89,19 @@ def read_report(run_id, session_id):
     return report
 
 
+def ensure_demo_session(session_id):
+    state = sessions.setdefault(str(session_id), {"documents": deepcopy(SEED), "latest_run": None, "backup": None})
+    state.setdefault("documents", deepcopy(SEED))
+    state.setdefault("latest_run", None)
+    state.setdefault("backup", None)
+    return state
+
+
 def run_analysis(session_id, source):
     old, new, old_spec, new_spec = schemas(source)
     changes = compare(old, new)
     if source == "demo":
-        session = sessions.setdefault(str(session_id), {"documents": deepcopy(SEED), "latest_run": None})
+        session = ensure_demo_session(session_id)
         impact = analyze_demo(session["documents"], old, new)
         database, collection = "schema_guard_demo", "movies"
     else:
@@ -154,6 +166,10 @@ def plan(run_id: UUID, request: PlanRequest):
         raise HTTPException(422, str(exc))
     result["id"] = str(uuid4())
     result["session_id"] = str(request.session_id)
+    contract = result.setdefault("execution_contract", {})
+    contract["plan_id"] = result["id"]
+    contract["expires_at"] = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+    contract["stale_after_minutes"] = 30
     with lock:
         plans[result["id"]] = result
     return result
@@ -168,7 +184,7 @@ def demo_apply(request: ApplyRequest):
         report = read_report(candidate["run_id"], request.session_id)
         if report["source"] != "demo":
             raise HTTPException(403, "This endpoint only modifies demo fixtures. Atlas execution is not implemented.")
-        state = sessions.get(str(request.session_id))
+        state = sessions.get(str(request.session_id)) or ensure_demo_session(request.session_id)
         if not state or state["latest_run"] != report["id"]:
             raise HTTPException(409, "The plan is stale. Run analysis and preview the plan again.")
         previous = deepcopy(state["documents"])
@@ -180,14 +196,58 @@ def demo_apply(request: ApplyRequest):
             raise
         state["backup"] = previous
         plans.pop(str(request.plan_id), None)
-        result["demo_backup_available"] = True
+        result["demo_backup_available"] = bool(state.get("backup"))
         return result
+
+
+@app.post("/api/demo/restore")
+def demo_restore(request: RestoreRequest):
+    with lock:
+        state = sessions.get(str(request.session_id)) or ensure_demo_session(request.session_id)
+        backup = deepcopy(state.get("backup")) if state.get("backup") is not None else None
+        if backup is None:
+            raise HTTPException(409, "No demo backup is available. Run analysis and apply a plan before restoring.")
+        current = deepcopy(state["documents"])
+        state["documents"] = backup
+        state["backup"] = None
+        try:
+            result = run_analysis(request.session_id, "demo")
+        except Exception:
+            state["documents"] = current
+            state["backup"] = backup
+            raise
+        return result
+
+
+@app.get("/api/validator")
+def validator_preview(session_id: UUID, run_id: UUID | None = None):
+    if run_id is None:
+        state = sessions.get(str(session_id))
+        if not state or not state.get("latest_run"):
+            raise HTTPException(404, "Run not found. Analyze the demo or Atlas dataset first.")
+        run_id = UUID(state["latest_run"])
+    report = read_report(run_id, session_id)
+    validator = {"$jsonSchema": report["new_schema"]}
+    payload = {
+        "session_id": str(session_id),
+        "run_id": str(run_id),
+        "validator": validator,
+        "validationLevel": "strict",
+        "validationAction": "warn",
+        "command": {
+            "collMod": report["collection"],
+            "validator": validator,
+            "validationLevel": "strict",
+            "validationAction": "warn",
+        },
+    }
+    return payload
 
 
 @app.post("/api/demo/reset")
 def demo_reset(request: RunRequest):
     with lock:
-        sessions[str(request.session_id)] = {"documents": deepcopy(SEED), "latest_run": None}
+        sessions[str(request.session_id)] = {"documents": deepcopy(SEED), "latest_run": None, "backup": None}
         return run_analysis(request.session_id, "demo")
 
 
