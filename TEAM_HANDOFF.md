@@ -77,6 +77,16 @@ How the UI owner can try it: pull the integration branch, merge the UI branch in
 - [ ] Recheck keyboard navigation, focus management, dialog cancellation, mobile layout, and error recovery after your UI changes. The starter's existing flow has already passed browser checks.
 - [ ] After contributors push, merge their branches, resolve cross-component mismatches, and verify the full app and repeatable demo.
 
+### AI suggestion UI (opt-in follow-up)
+
+- Keep suggestions visibly advisory. In Impact, show each candidate beside its affected distinct value with the target, score, and source; show rename candidates alongside the relevant model change.
+- Let a user select a candidate to populate the explicit mapping decision in Fixes. The user must review and generate the plan; never auto-select a mapping or apply a repair.
+- Show whether suggestions are disabled, using Voyage, or using lexical fallback. If the Voyage request fails, keep the scan usable and label the fallback rather than presenting it as an AI result.
+- Preserve opt-in and disclose that bounded bad values, allowed values, and field names are sent to MongoDB AI. Do not send examples, document IDs, full documents, or connection details.
+- Coordinate the contract first: `build_report` must preserve `scan.suggestions`, and `frontend/src/types.ts` must type `distinct_values[].suggestions`, `changes[].rename_candidates`, and the scan status before the views can render them.
+
+Acceptance: candidates are available only where applicable, a selected candidate becomes an explicit human decision, status and fallback are clear, and no suggestion changes counts or executes a write.
+
 ### Acceptance
 
 Someone unfamiliar with the project can distinguish demo from Atlas data, explain why a document fails, enter a valid decision, review the resulting operations, and observe the new report. No interface control implies live repairs are already supported.

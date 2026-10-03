@@ -96,7 +96,7 @@ def test_voyage_payload_contains_only_values_targets_and_field_names():  # U-S2
     suggest.maybe_enrich(report, SCHEMA, [], env=ENV, transport=fake)
     assert len(fake.calls) == 1  # one batched request per scan
     call = fake.calls[0]
-    assert call["url"] == "https://api.voyageai.com/v1/embeddings"
+    assert call["url"] == "https://ai.mongodb.com/v1/embeddings"
     assert call["payload"]["model"] == "voyage-4-lite"
     sent = json.dumps(call["payload"])
     for secret in ("movie-001", "mongodb+srv", "_id", "example", "Quiet Harbour"):

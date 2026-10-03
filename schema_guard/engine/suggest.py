@@ -18,7 +18,7 @@ import urllib.error
 import urllib.request
 
 DEFAULT_MODEL = "voyage-4-lite"
-DEFAULT_URL = "https://api.voyageai.com/v1"
+DEFAULT_URL = "https://ai.mongodb.com/v1"
 LEXICAL_MIN = 0.75
 VOYAGE_MIN = 0.6
 MAX_SUGGESTIONS = 3
