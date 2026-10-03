@@ -1,0 +1,12 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["title", "year", "runtime", "rated"],
+    "properties": {
+      "title": { "bsonType": "string", "description": "must be a string" },
+      "year": { "bsonType": ["int", "long"] },
+      "runtime": { "bsonType": ["int", "long"] },
+      "rated": { "enum": ["G", "PG", "PG-13", "R"] }
+    }
+  }
+}
