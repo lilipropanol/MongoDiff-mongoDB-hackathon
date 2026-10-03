@@ -84,14 +84,38 @@ Outside these folders I only changed four **connector** files: `schema_guard/{tr
   - `changes[].rename_candidates`, e.g. `runtime` → `duration_minutes`
 - **Only suggests.** Plans and counts are identical with or without it (tested).
 - **Privacy:** only bad values, enum values and field names are sent. Never ids, documents or the URI (tested).
+- **Reranker mode** (`GUARD_SUGGESTIONS=voyage-rerank`, default model `rerank-2.5`): usually more accurate for "which allowed value did they mean?".
+  - It costs one request per bad value, capped at 20 per scan. Values beyond the cap still get offline suggestions.
+  - `scan.suggestions.semantic_jobs` shows how many values were scored.
+- **Tunable without code changes:** `VOYAGE_MIN_SCORE` (threshold for the active Voyage mode), `VOYAGE_RERANK_MODEL`.
 
-## Test results (2026-10-03)
+### Stretch goals (added later the same day)
+
+- **Bad values for array items.** `genres[]`, `cast[].name` and enum lists (`tags[]`) now get `distinct_values` too.
+  - Counts are documents containing the value; a value repeated inside one document counts once.
+  - Uses `$filter`/`$map` before `$unwind`, so only bad elements are expanded (MongoDB aggregation guidance).
+  - Arrays nested in arrays (`grid[][]`) are still not offered.
+- **Schema versioning analysis.** New top-level `versioning`:
+  - a per-version breakdown (`total`, `failing`, `newly_failing`) when documents carry `schemaVersion`; the field is configurable via `GUARD_VERSION_FIELD` or `version_field=`, and `""` turns it off
+  - `bump_recommended` and `breaking_changes`, taken from the diff's compatibility labels
+  - a plain-English message, e.g. "no `schemaVersion` field — consider adding one so old and new shapes can coexist"
+  - Analysis only; adding or migrating versions writes data, so that's Person 3's side.
+- **Real time-limit test.** The local test `mongod` starts with test commands enabled. The `maxTimeAlwaysTimeOut` failpoint proves MongoDB itself stops the scan (`ExecutionTimeout`) and the server returns its clean 502 without leaking the URI. On servers without failpoints (e.g. Atlas) this test skips.
+- **Atlas measurement tool** (`python -m schema_guard.engine.measure`), read-only:
+  - Runs the scan N times; the counts must not change.
+  - Cross-checks `total`, `failing`, `preexisting` and `newly_failing` against MongoDB's own `count_documents`.
+  - Confirms example ids exist and fail, and records the server version and current validator.
+  - Saves `reports/engine-measure-<timestamp>.json` and refuses to save output containing the URI.
+  - Exit code 0 = all checks pass, 1 = a check failed, 2 = configuration or connection problem.
+  - Tests prove it catches a wrong count and non-reproducible counts.
+
+## Test results (2026-10-03, after stretch goals)
 
 | Suite | Result |
 | --- | --- |
-| Whole repo `pytest -q` | **163 passed**, 1 skipped (the live Voyage check needs a key) |
-| `tests/engine` unit (translator 36, JSON Schema 32, diff 14, specs 21, compat 7, suggest 14) | all pass |
-| `tests/engine/integration` on a real `mongod` 6.0.21 (local, throwaway) | **34 passed** |
+| Whole repo `pytest -q` | **187 passed**, 1 skipped (the live Voyage check needs a key) |
+| `tests/engine` unit (translator 36, JSON Schema 32, diff 14, specs 25, compat 7, suggest 20) | all pass |
+| `tests/engine/integration` on a real `mongod` 6.0.21 (local, throwaway) | **48 passed** (34 core + 14 stretch) |
 | Starter `tests/test_workflow.py` | 5 passed, unchanged |
 | `npm --prefix frontend run build` | passes; same bundle as before |
 | CLI with JSON schema files | `7 of 12` demo result, the same as with Python models |
@@ -128,7 +152,7 @@ GUARD_SUGGESTIONS=lexical .venv/bin/schema-guard-server   # dashboard with offli
 
 ## Known gaps (engine)
 
-- Distinct values are not offered for array elements (`genres[]`). That would need an `$unwind` facet.
+- Distinct values are not offered for arrays nested inside arrays (`grid[][]`, `cast[].roles[]`). One level of array is supported.
 - JSON Schema `additionalProperties: false` is rejected (MongoDB documents also have `_id`). Supporting it needs a new "unexpected field" reason.
 - JSON Schema `format: date-time` stays `string`. Use `bsonType: "date"` in the file if dates are stored as BSON dates.
 - `float` accepts BSON `decimal` (like the starter), but Pydantic cannot read `Decimal128` as a float. Revisit after seeing real data.
@@ -149,38 +173,38 @@ GUARD_SUGGESTIONS=lexical .venv/bin/schema-guard-server   # dashboard with offli
 
 ## Handoff: for Person 3 (including Atlas)
 
-Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is new after reading their branch.
+Person 3 owns Atlas and their own files, so I didn't do any of this. Item 8 is new after reading their branch; item 9 came with the stretch goals.
 
 1. **Atlas live verification (read-only).**
    - Load `sample_mflix` and use a database user with only the `read` role.
    - Set `MONGODB_URI` in `.env`.
-   - Run `schema-guard --database sample_mflix --collection movies` twice. The counts must match.
-   - Record the numbers (with date and cluster tier) in this file or `docs/VALIDATION.md`.
-   - Check that the URI never appears in `reports/`.
+   - Run `.venv/bin/python -m schema_guard.engine.measure --runs 2`. It runs the scan twice, cross-checks every count against MongoDB, prints PASS/FAIL, and saves a dated JSON under `reports/` (never containing the URI).
+   - Exit code 0 means every check passed.
+   - Paste the printed summary (with date and cluster tier) into this file or `docs/VALIDATION.md`.
 2. **Run my real-MongoDB tests against Atlas's server version.** Set `SCHEMA_GUARD_TEST_URI` to a **disposable** Atlas database or cluster, then run `pytest -q tests/engine/integration`. The tests insert and drop their own collections, so **never point this at `sample_mflix` or production.**
 3. **Real-data example models.** After looking at `sample_mflix`, write `examples/engine/models_mflix_{old,new}.py` (or JSON) with nested `imdb`, `awards`, `genres`, `cast` and `rated`. Then demo it via `GUARD_OLD_MODEL/GUARD_NEW_MODEL`.
-4. **`report.py` (your file):** two lines so warnings and scan info reach saved reports. Today they're computed but dropped by `build_report`:
+4. **`report.py` (your file):** three lines so warnings, scan info and versioning reach saved reports. Today they're computed but dropped by `build_report`:
 
    ```python
    "warnings": impact.get("warnings", []),
    "scan": impact.get("scan"),
+   "versioning": impact.get("versioning"),
    ```
 
 5. **`fixes.py` (your file):** in `make_plan`, skip reasons where `reason.get("location", "field") != "field"` when creating default operations. Nested reasons share the root `field`, so a root default would otherwise be labelled with a nested count. Consider offering mappings only for `distinct_values` with `mappable: true`.
 6. **`demo.py` (optional):** call `impact.summarize_values(...)` per reason, so fixture reports also carry `distinct_values` and the UI can build mapping controls offline.
-7. **Voyage live check.** Set `VOYAGE_API_KEY` and `SCHEMA_GUARD_LIVE_VOYAGE=1` and run `pytest -q tests/engine/test_engine_suggest.py`.
-   - Keys created in the Atlas console may need a different `VOYAGE_API_URL`; check the current docs.
-   - Tune `VOYAGE_MIN` in `suggest.py` if suggestions are too eager or too shy on real `rated` values.
+7. **Voyage AI integration.** See the separate brief, [BRIEF_PERSON3_AI.md](BRIEF_PERSON3_AI.md).
 8. **`/api/validator` (your new endpoint), nice to have:**
    - MongoDB's schema-validation guidance suggests `validationLevel: "moderate"` with `"warn"` when adding rules to a collection that already has bad documents. Today the endpoint uses `"strict"`.
    - The engine's `load_collection_validator()` can read the collection's *current* validator and settings, so the preview could show "current vs proposed" before any `collMod`.
+9. **Schema versioning migrations (stretch).** The engine now reports failing documents per `schemaVersion` and recommends a bump on breaking changes. Actually adding `schemaVersion` and migrating documents writes data, so it belongs with your backup and restore flow, on a disposable collection first.
 
 ## Handoff: for Person 1 (UI and integration)
 
 - **Optional new fields** to add to `frontend/src/types.ts` / `docs/API.md`. They're all additive; the existing keys are unchanged.
   - **reasons:** `path`, `location`, `count_newly`, `count_preexisting`, `explanation`, `distinct_values[{value, bson_type, count, mappable, truncated?, suggestions?}]`, `distinct_value_count`, `distinct_values_limited`
   - **changes:** `parent`, `details`, `compatibility`, `compatibility_reason`, `rename_candidates?`
-  - **report** (after Person 3's `report.py` lines): `warnings[]`, `scan`
+  - **report** (after Person 3's `report.py` lines): `warnings[]`, `scan`, `versioning{field, versioned, versions[], bump_recommended, breaking_changes[], message}`
 - **UI ideas:**
   - group nested reasons under their root `field`
   - mapping controls from `distinct_values` where `mappable`

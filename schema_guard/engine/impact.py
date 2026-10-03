@@ -6,6 +6,7 @@ explains only those. Nested checks are aggregation expressions inside $expr so t
 array traversal in query paths ("a.b", {$type: ...}) cannot confuse an array with its elements.
 """
 
+import os
 import time
 
 from pymongo.errors import PyMongoError
@@ -15,6 +16,7 @@ EXAMPLE_STRING_LIMIT = 200
 DISTINCT_STRING_LIMIT = 80
 SCALAR_TYPES = ["string", "int", "long", "double", "decimal", "bool", "date", "null", "objectId"]
 DISTINCT_REASONS = ("wrong_type", "value_not_allowed")
+MAX_VERSIONS = 20
 
 
 def reason_specs(schema: dict) -> list[dict]:
@@ -115,9 +117,15 @@ def _deep(specs, root, path, value, rule, depth):
         element, element_path = f"$${var}", f"{path}[]"
         inner = _field_checks(root, element_path, element, rule["items"], False, None, "array_element")
         _deep(inner, root, element_path, element, rule["items"], depth + 1)
+        array = {"$cond": [{"$isArray": value}, value, []]}
         for spec in inner:
+            # Offending element values for one level of array (not arrays nested inside arrays): $filter then
+            # $map, so the distinct-value facet only $unwinds the bad elements instead of every element.
+            if spec["value"] and "$$" not in value:
+                spec["values_expr"] = {"$map": {"input": {"$filter": {"input": array, "as": var, "cond": spec["expr"]}},
+                                                "as": var, "in": spec["value"]}}
             spec["expr"] = _any_element(value, var, spec["expr"])
-            spec["value"] = None  # Distinct values for array elements would need $unwind; not offered yet.
+            spec["value"] = None
             spec["location"] = "array_element"
         specs.extend(inner)
 
@@ -241,11 +249,44 @@ def _example_projection(field):
     return {"$project": {"_id": 1, field: bounded}}
 
 
-def _distinct_group(value):
-    return {"$group": {"_id": {
-        "v": {"$cond": [{"$in": [{"$type": value}, SCALAR_TYPES]}, value, None]},
-        "t": {"$type": value},
-    }, "n": {"$sum": 1}}}
+def _scalar_or_null(value):
+    return {"$cond": [{"$in": [{"$type": value}, SCALAR_TYPES]}, value, None]}
+
+
+def _distinct_stages(spec):
+    """Stages grouping offending values by (value, BSON type); counts are documents containing the value."""
+    if spec["value"]:
+        value = spec["value"]
+        return [{"$group": {"_id": {"v": _scalar_or_null(value), "t": {"$type": value}}, "n": {"$sum": 1}}}]
+    # Array elements: unwind only the offending elements, count each document once per value.
+    return [{"$project": {"_v": spec["values_expr"]}}, {"$unwind": "$_v"},
+            {"$group": {"_id": {"v": _scalar_or_null("$_v"), "t": {"$type": "$_v"}, "d": "$_id"}}},
+            {"$group": {"_id": {"v": "$_id.v", "t": "$_id.t"}, "n": {"$sum": 1}}}]
+
+
+def _version_group(field):
+    return [{"$group": {"_id": f"${field}", "n": {"$sum": 1}}}, {"$sort": {"n": -1, "_id": 1}}, {"$limit": MAX_VERSIONS}]
+
+
+def _versioning(field, data, changes):
+    """Per-version breakdown and a version-bump recommendation (MongoDB schema versioning pattern)."""
+    rows = {}
+    for key, column in (("versions_total", "total"), ("versions_failing", "failing"), ("versions_newly", "newly_failing")):
+        for group in data.get(key, []):
+            rows.setdefault(repr(group["_id"]), {"version": group["_id"], "total": 0, "failing": 0, "newly_failing": 0})[column] = group["n"]
+    versions = sorted(rows.values(), key=lambda row: (-row["total"], str(row["version"])))
+    versioned = any(row["version"] is not None for row in versions)
+    breaking = list(dict.fromkeys(c["field"] for c in changes or [] if c.get("compatibility") == "breaking"))
+    if not breaking:
+        message = "Only backward-compatible changes: no schema version bump is needed."
+    elif versioned:
+        message = (f"{len(breaking)} breaking change(s). Bump `{field}` for the new shape and migrate older versions;"
+                   " failing documents per version are listed.")
+    else:
+        message = (f"{len(breaking)} breaking change(s), and documents have no `{field}` field. Consider adding one so old"
+                   " and new shapes can coexist while you migrate (MongoDB schema versioning pattern).")
+    return {"field": field, "versioned": versioned, "versions": versions if versioned else [],
+            "bump_recommended": bool(breaking), "breaking_changes": breaking, "message": message}
 
 
 def _validate_limits(examples, distinct_limit, max_time_ms):
@@ -265,8 +306,13 @@ def _collection_exists(collection):
 
 
 def analyze_collection(collection, new_schema: dict, changes: list[dict], examples: int = 3, old_schema: dict | None = None,
-                       *, distinct_limit: int = 10, max_time_ms: int = 30000, two_pass: bool = True) -> dict:
+                       *, distinct_limit: int = 10, max_time_ms: int = 30000, two_pass: bool = True,
+                       version_field: str | None = None) -> dict:
     _validate_limits(examples, distinct_limit, max_time_ms)
+    if version_field is None:
+        version_field = os.getenv("GUARD_VERSION_FIELD", "schemaVersion")
+    if version_field and (version_field.startswith("$") or "." in version_field):
+        raise ValueError("version_field must be a plain top-level field name")
     started = time.monotonic()
     invalid = {"$nor": [{"$jsonSchema": new_schema}]}
 
@@ -291,8 +337,14 @@ def analyze_collection(collection, new_schema: dict, changes: list[dict], exampl
         totals["newly_failing"] = _count_stage({"$and": [{"$jsonSchema": old_schema}, invalid]})
     for i, warning in enumerate(warnings):
         totals[f"w{i}"] = _count_stage({"$expr": warning["expr"]})
+    if version_field:
+        totals["versions_total"] = _version_group(version_field)
 
     details = {}
+    if version_field:
+        details["versions_failing"] = [{"$match": within_failing({})}, *_version_group(version_field)]
+        if old_schema:
+            details["versions_newly"] = [{"$match": within_failing({"$jsonSchema": old_schema})}, *_version_group(version_field)]
     for i, spec in enumerate(specs):
         query = spec["query"] if "query" in spec else {"$expr": spec["expr"]}
         match = {"$match": within_failing(query)}
@@ -301,10 +353,10 @@ def analyze_collection(collection, new_schema: dict, changes: list[dict], exampl
             details[f"r{i}_newly"] = [match, {"$match": {"$jsonSchema": old_schema}}, {"$count": "n"}]
         if examples:
             details[f"r{i}_examples"] = [match, {"$limit": examples}, _example_projection(spec["field"])]
-        if spec["value"] and distinct_limit:
-            group = _distinct_group(spec["value"])
-            details[f"r{i}_values"] = [match, group, {"$sort": {"n": -1, "_id.t": 1, "_id.v": 1}}, {"$limit": distinct_limit}]
-            details[f"r{i}_value_count"] = [match, group, {"$count": "n"}]
+        if (spec["value"] or spec.get("values_expr")) and distinct_limit:
+            stages = _distinct_stages(spec)
+            details[f"r{i}_values"] = [match, *stages, {"$sort": {"n": -1, "_id.t": 1, "_id.v": 1}}, {"$limit": distinct_limit}]
+            details[f"r{i}_value_count"] = [match, *stages, {"$count": "n"}]
     unexplained = {"$nor": [s["query"] for s in root_specs]} if root_specs else {}
     details["unclassified"] = [{"$match": within_failing(unexplained)}, {"$count": "n"}]
 
@@ -351,6 +403,8 @@ def analyze_collection(collection, new_schema: dict, changes: list[dict], exampl
               "scan": {"duration_ms": round((time.monotonic() - started) * 1000), "max_time_ms": max_time_ms,
                        "examples": examples, "distinct_limit": distinct_limit, "two_pass": two_pass,
                        "collection_exists": _collection_exists(collection), "snapshot": False}}
+    if version_field:
+        result["versioning"] = _versioning(version_field, data, changes)
     from . import suggest
     suggest.maybe_enrich(result, new_schema, changes)
     return result

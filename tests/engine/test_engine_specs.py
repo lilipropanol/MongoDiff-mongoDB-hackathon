@@ -196,3 +196,40 @@ def test_summarize_values_matches_facet_shape():
     assert next(v for v in full if v["bson_type"] == "array")["value"] is None
     assert {(v["value"], v["bson_type"]) for v in full} >= {(1, "int"), ("1", "string")}
     assert summarize_values(["a"], location="nested")["distinct_values"][0]["mappable"] is False
+
+
+def test_array_element_specs_carry_a_values_expression():
+    with_values = {s["path"] for s in DEEP if s.get("values_expr")}
+    # One level of array only; arrays nested in arrays (grid[][], cast[].roles[]) are excluded.
+    assert with_values == {"genres[]", "cast[]", "cast[].name", "cast[].roles", "grid[]"}
+    spec = next(s for s in DEEP if s["path"] == "cast[].name" and s["reason"] == "wrong_type")
+    assert spec["values_expr"]["$map"]["in"] == "$$e0.name"
+    assert spec["values_expr"]["$map"]["input"]["$filter"]["as"] == "e0"
+
+
+def test_versioning_advice_from_changes():
+    from schema_guard.engine.impact import _versioning
+    breaking = [{"field": "runtime", "compatibility": "breaking"}, {"field": "runtime", "compatibility": "breaking"},
+                {"field": "poster", "compatibility": "compatible"}]
+    data = {"versions_total": [{"_id": 1, "n": 5}, {"_id": None, "n": 2}], "versions_failing": [{"_id": 1, "n": 4}]}
+    advice = _versioning("schemaVersion", data, breaking)
+    assert advice["breaking_changes"] == ["runtime"] and advice["bump_recommended"] is True
+    assert advice["versions"][0] == {"version": 1, "total": 5, "failing": 4, "newly_failing": 0}
+    assert _versioning("schemaVersion", {}, [])["message"].startswith("Only backward-compatible")
+    unversioned = _versioning("schemaVersion", {"versions_total": [{"_id": None, "n": 3}]}, breaking)
+    assert unversioned["versioned"] is False and unversioned["versions"] == []
+
+
+def test_version_field_is_validated():
+    with pytest.raises(ValueError, match="version_field"):
+        analyze_collection(FakeCollection(), SCHEMA, [], version_field="$bad")
+
+
+def test_measure_without_uri_exits_with_configuration_error(monkeypatch, capsys):
+    from schema_guard.engine import measure
+    monkeypatch.setattr(measure, "load_dotenv", lambda *a, **k: None)
+    monkeypatch.delenv("MONGODB_URI", raising=False)
+    assert measure.main([]) == 2
+    assert "MONGODB_URI" in capsys.readouterr().err
+    with pytest.raises(ValueError, match="runs"):
+        measure.measure(FakeCollection(), SCHEMA, SCHEMA, runs=0)

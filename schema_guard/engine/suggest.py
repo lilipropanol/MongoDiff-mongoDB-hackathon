@@ -1,12 +1,17 @@
 """Optional mapping and rename *suggestions*. They never become decisions and never change counts.
 
 Off unless GUARD_SUGGESTIONS is set:
-  GUARD_SUGGESTIONS=lexical  offline string similarity only (difflib), no network
-  GUARD_SUGGESTIONS=voyage   Voyage AI embeddings (MongoDB) with lexical fallback; needs VOYAGE_API_KEY
+  GUARD_SUGGESTIONS=lexical        offline string similarity only (difflib), no network
+  GUARD_SUGGESTIONS=voyage         Voyage AI embeddings: one batched request per scan
+  GUARD_SUGGESTIONS=voyage-rerank  Voyage AI reranker: usually more accurate for "which allowed value did
+                                   they mean?", but one request per bad value (capped at MAX_RERANK_CALLS)
+Both Voyage modes need VOYAGE_API_KEY and fall back to lexical on any error.
+
+Tuning without code changes: VOYAGE_MIN_SCORE (threshold for the active Voyage mode), VOYAGE_EMBED_MODEL,
+VOYAGE_RERANK_MODEL, VOYAGE_API_URL (keys created in the Atlas console may use a different base URL).
 
 Privacy: only distinct bad values (already truncated), allowed enum values and field names are sent.
-Never document ids, documents, examples or the database URI. One batched embeddings request per scan
-keeps within low free-tier rate limits.
+Never document ids, documents, examples or the database URI.
 """
 
 import difflib
@@ -18,11 +23,16 @@ import urllib.error
 import urllib.request
 
 DEFAULT_MODEL = "voyage-4-lite"
+DEFAULT_RERANK_MODEL = "rerank-2.5"
 DEFAULT_URL = "https://api.voyageai.com/v1"
 LEXICAL_MIN = 0.75
 VOYAGE_MIN = 0.6
+RERANK_MIN = 0.5
 MAX_SUGGESTIONS = 3
 MAX_TEXTS = 500
+MAX_RERANK_CALLS = 20
+TIMEOUT_SECONDS = 10.0
+FAILURES = (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, TypeError, IndexError)
 
 
 def _normalize(text: str) -> str:
@@ -70,29 +80,76 @@ def _types(rule):
     return set([types] if isinstance(types, str) else types) - {"null"}
 
 
+def _base_url(env):
+    return env.get("VOYAGE_API_URL", DEFAULT_URL).rstrip("/")
+
+
+def _threshold(env, default):
+    try:
+        return float(env["VOYAGE_MIN_SCORE"]) if env.get("VOYAGE_MIN_SCORE") else default
+    except ValueError:
+        return default
+
+
 class Embedder:
-    """Embeds every requested text in one Voyage call."""
+    """Embeds every requested text in one Voyage call, then compares with cosine similarity."""
+
+    source = "voyage-embed"
 
     def __init__(self, env, transport):
         self.env, self.transport = env, transport
         self.model = env.get("VOYAGE_EMBED_MODEL", DEFAULT_MODEL)
+        self.minimum = _threshold(env, VOYAGE_MIN)
         self.vectors = {}
 
-    def load(self, texts):
+    def prepare(self, jobs):
+        texts = []
+        for query, documents in jobs:
+            texts += [query, *documents]
         texts = list(dict.fromkeys(texts))[:MAX_TEXTS]
         if not texts:
-            return
-        url = self.env.get("VOYAGE_API_URL", DEFAULT_URL).rstrip("/") + "/embeddings"
-        response = self.transport(url, {"input": texts, "model": self.model}, self.env["VOYAGE_API_KEY"], 10.0)
+            return {}
+        response = self.transport(f"{_base_url(self.env)}/embeddings", {"input": texts, "model": self.model},
+                                  self.env["VOYAGE_API_KEY"], TIMEOUT_SECONDS)
         data = sorted(response["data"], key=lambda item: item["index"])
         if len(data) != len(texts):
             raise ValueError("Voyage returned a different number of embeddings than requested")
         self.vectors = {text: item["embedding"] for text, item in zip(texts, data)}
+        return {}
 
-    def score(self, a, b):
-        if a not in self.vectors or b not in self.vectors:
+    def score(self, query, document):
+        if query not in self.vectors or document not in self.vectors:
             return None
-        return _cosine(self.vectors[a], self.vectors[b])
+        return _cosine(self.vectors[query], self.vectors[document])
+
+
+class Reranker:
+    """Scores the candidates for each query with one Voyage rerank call per query (capped)."""
+
+    source = "voyage-rerank"
+
+    def __init__(self, env, transport):
+        self.env, self.transport = env, transport
+        self.model = env.get("VOYAGE_RERANK_MODEL", DEFAULT_RERANK_MODEL)
+        self.minimum = _threshold(env, RERANK_MIN)
+        self.scores = {}
+
+    def prepare(self, jobs):
+        unique = list(dict.fromkeys((query, tuple(documents)) for query, documents in jobs if documents))
+        for query, documents in unique[:MAX_RERANK_CALLS]:
+            response = self.transport(f"{_base_url(self.env)}/rerank",
+                                      {"query": query, "documents": list(documents), "model": self.model,
+                                       "top_k": min(len(documents), MAX_SUGGESTIONS)},
+                                      self.env["VOYAGE_API_KEY"], TIMEOUT_SECONDS)
+            for item in response["data"]:
+                self.scores[(query, documents[item["index"]])] = float(item["relevance_score"])
+        return {"semantic_jobs": {"scored": min(len(unique), MAX_RERANK_CALLS), "total": len(unique)}}
+
+    def score(self, query, document):
+        return self.scores.get((query, document))
+
+
+PROVIDERS = {"voyage": Embedder, "voyage-rerank": Reranker}
 
 
 def _value_text(field, value):
@@ -104,7 +161,7 @@ def _rename_text(path, rule):
 
 
 def _value_jobs(result, schema):
-    """(distinct value entry, field path, bad value, allowed string targets) for every mappable enum outlier."""
+    """(distinct value entry, field path, bad value, allowed string targets) for every enum outlier."""
     for reason in result.get("reasons", []):
         if reason.get("reason") != "value_not_allowed":
             continue
@@ -132,34 +189,31 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
     transport = transport or post_json
     changes = changes or []
     status = {"provider": "lexical", "model": None, "status": "ok", "fallback_reason": None}
-    embedder = None
     value_jobs = list(_value_jobs(result, schema))
     rename_jobs = list(_rename_jobs(changes))
-    if mode == "voyage":
+    provider = None
+    if mode in PROVIDERS:
         if not env.get("VOYAGE_API_KEY"):
             status.update(status="fallback", fallback_reason="VOYAGE_API_KEY is not set")
         else:
-            embedder = Embedder(env, transport)
-            texts = []
-            for _, path, bad, targets in value_jobs:
-                texts += [_value_text(path, bad)] + [_value_text(path, t) for t in targets]
-            for change, targets in rename_jobs:
-                texts += [_rename_text(change["field"], change["old"])] + [_rename_text(t["field"], t["new"]) for t in targets]
+            provider = PROVIDERS[mode](env, transport)
+            jobs = [(_value_text(path, bad), [_value_text(path, t) for t in targets]) for _, path, bad, targets in value_jobs]
+            jobs += [(_rename_text(c["field"], c["old"]), [_rename_text(t["field"], t["new"]) for t in targets]) for c, targets in rename_jobs]
             try:
-                embedder.load(texts)
-                status.update(provider="voyage", model=embedder.model)
-            except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, TypeError) as exc:
-                embedder = None
+                status.update(provider.prepare(jobs))
+                status.update(provider="voyage", model=provider.model, method=provider.source)
+            except FAILURES as exc:
+                provider = None
                 status.update(status="fallback", fallback_reason=f"Voyage request failed ({type(exc).__name__})")
 
     for entry, path, bad, targets in value_jobs:
         scored = []
         for target in targets:
             lexical = lexical_score(bad, target)
-            semantic = embedder.score(_value_text(path, bad), _value_text(path, target)) if embedder else None
+            semantic = provider.score(_value_text(path, bad), _value_text(path, target)) if provider else None
             options = [(lexical, "lexical")] if lexical >= LEXICAL_MIN else []
-            if semantic is not None and semantic >= VOYAGE_MIN:
-                options.append((semantic, "voyage-embed"))
+            if semantic is not None and semantic >= provider.minimum:
+                options.append((semantic, provider.source))
             if options:
                 score, source = max(options, key=lambda o: (o[0], o[1] == "lexical"))
                 # Ties on the semantic score are broken by text similarity ("PG13" → "PG-13" over "PG").
@@ -171,11 +225,11 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
         candidates = []
         for target in targets:
             score, source = lexical_score(change["field"].split(".")[-1], target["field"].split(".")[-1]), "lexical"
-            if embedder:
-                semantic = embedder.score(_rename_text(change["field"], change["old"]), _rename_text(target["field"], target["new"]))
+            if provider:
+                semantic = provider.score(_rename_text(change["field"], change["old"]), _rename_text(target["field"], target["new"]))
                 if semantic is not None and semantic > score:
-                    score, source = semantic, "voyage-embed"
-            if score >= (VOYAGE_MIN if source == "voyage-embed" else LEXICAL_MIN):
+                    score, source = semantic, provider.source
+            if score >= (provider.minimum if source != "lexical" else LEXICAL_MIN):
                 candidates.append({"to": target["field"], "score": round(score, 3), "source": source})
         change["rename_candidates"] = sorted(candidates, key=lambda c: -c["score"])[:MAX_SUGGESTIONS]
 
@@ -186,6 +240,6 @@ def enrich(result: dict, schema: dict, changes: list[dict] | None = None, *, mod
 def maybe_enrich(result: dict, schema: dict, changes: list[dict] | None, env=None, transport=None) -> dict:
     env = os.environ if env is None else env
     mode = (env.get("GUARD_SUGGESTIONS") or "").strip().lower()
-    if mode not in ("lexical", "voyage"):
+    if mode not in ("lexical", *PROVIDERS):
         return result
     return enrich(result, schema, changes, mode=mode, env=env, transport=transport)

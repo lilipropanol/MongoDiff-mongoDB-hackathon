@@ -199,3 +199,91 @@ def test_live_voyage_smoke():  # L-S1
     assert report["scan"]["suggestions"]["status"] == "ok", report["scan"]["suggestions"]
     rated = {v["value"]: v["suggestions"] for v in report["reasons"][0]["distinct_values"]}
     assert rated["PG13"] and rated["PG13"][0]["target"] == "PG-13"
+
+
+# --- Voyage reranker (GUARD_SUGGESTIONS=voyage-rerank) ----------------------------------------
+
+class FakeRerank:
+    """Scores 'PG-13' highest for PG13-like queries; records every call."""
+
+    def __init__(self, fail=None):
+        self.calls, self.fail = [], fail
+
+    def __call__(self, url, payload, api_key, timeout):
+        self.calls.append({"url": url, "payload": copy.deepcopy(payload)})
+        if self.fail:
+            raise self.fail
+        query = payload["query"].split(":", 1)[-1].strip().lower().replace("-", "")
+        scored = []
+        for index, document in enumerate(payload["documents"]):
+            value = document.split(":", 1)[-1].strip().lower().replace("-", "")
+            scored.append({"index": index, "relevance_score": 0.95 if value == query else (0.7 if value.startswith(query[:2]) else 0.1)})
+        scored.sort(key=lambda item: -item["relevance_score"])
+        return {"data": scored[:payload["top_k"]]}
+
+
+RERANK_ENV = {"GUARD_SUGGESTIONS": "voyage-rerank", "VOYAGE_API_KEY": "test-key"}
+
+
+def test_rerank_sends_one_request_per_bad_value_with_safe_payload():
+    fake = FakeRerank()
+    report = suggestion_report()
+    suggest.maybe_enrich(report, SCHEMA, [], env=RERANK_ENV, transport=fake)
+    assert len(fake.calls) == 4  # PG13, pg, NOT RATED, goood
+    assert {c["url"] for c in fake.calls} == {"https://api.voyageai.com/v1/rerank"}
+    first = fake.calls[0]["payload"]
+    assert first["model"] == "rerank-2.5" and first["top_k"] == 3
+    assert first["query"] == "rated value: PG13"
+    assert first["documents"] == ["rated value: G", "rated value: PG", "rated value: PG-13", "rated value: R"]
+    sent = json.dumps([c["payload"] for c in fake.calls])
+    for secret in ("movie-001", "Quiet Harbour", "_id", "example"):
+        assert secret not in sent
+
+
+def test_rerank_suggestions_and_status():
+    report = suggestion_report()
+    suggest.maybe_enrich(report, SCHEMA, [], env=RERANK_ENV, transport=FakeRerank())
+    rated = {v["value"]: v["suggestions"] for v in report["reasons"][0]["distinct_values"]}
+    assert rated["PG13"][0]["target"] == "PG-13"
+    assert rated["NOT RATED"] == []  # every score below the rerank threshold
+    status = report["scan"]["suggestions"]
+    assert status["provider"] == "voyage" and status["model"] == "rerank-2.5" and status["method"] == "voyage-rerank"
+    assert status["semantic_jobs"] == {"scored": 4, "total": 4}
+
+
+def test_rerank_calls_are_capped(monkeypatch):
+    monkeypatch.setattr(suggest, "MAX_RERANK_CALLS", 2)
+    fake = FakeRerank()
+    report = suggestion_report()
+    suggest.maybe_enrich(report, SCHEMA, [], env=RERANK_ENV, transport=fake)
+    assert len(fake.calls) == 2
+    assert report["scan"]["suggestions"]["semantic_jobs"] == {"scored": 2, "total": 4}
+    goood = report["reasons"][1]["distinct_values"][0]["suggestions"]
+    assert goood and goood[0]["source"] == "lexical"  # unscored jobs still get offline suggestions
+
+
+def test_rerank_failure_falls_back():
+    report = suggestion_report()
+    suggest.maybe_enrich(report, SCHEMA, [], env=RERANK_ENV, transport=FakeRerank(fail=TimeoutError()))
+    assert report["scan"]["suggestions"]["status"] == "fallback"
+
+
+def test_min_score_and_models_are_tunable_from_env():
+    strict = {**RERANK_ENV, "VOYAGE_MIN_SCORE": "0.99", "VOYAGE_RERANK_MODEL": "rerank-2.5-lite"}
+    fake = FakeRerank()
+    report = suggestion_report()
+    suggest.maybe_enrich(report, SCHEMA, [], env=strict, transport=fake)
+    assert fake.calls[0]["payload"]["model"] == "rerank-2.5-lite"
+    pg13 = report["reasons"][0]["distinct_values"][0]["suggestions"]
+    assert all(s["source"] == "lexical" for s in pg13)  # 0.95 < 0.99, so only the exact text match remains
+    bad = {**RERANK_ENV, "VOYAGE_MIN_SCORE": "not-a-number"}
+    assert suggest._threshold(bad, 0.5) == 0.5
+
+
+def test_rerank_rename_candidates():
+    changes = [
+        {"field": "rated", "kind": "removed", "old": {"bsonType": "string"}},
+        {"field": "rating", "kind": "added", "new": {"bsonType": "string"}, "required": True},
+    ]
+    suggest.enrich({"reasons": []}, SCHEMA, changes, mode="voyage-rerank", env=RERANK_ENV, transport=FakeRerank())
+    assert changes[0]["rename_candidates"][0]["to"] == "rating"

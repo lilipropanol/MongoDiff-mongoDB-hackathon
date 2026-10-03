@@ -39,8 +39,10 @@ def mongo_client(tmp_path_factory):
             pytest.skip("No MongoDB available: install mongod or set SCHEMA_GUARD_TEST_URI")
         port = _free_port()
         dbpath = tmp_path_factory.mktemp("mongod-data")
+        # enableTestCommands allows the maxTimeAlwaysTimeOut failpoint used by the time-limit test.
         process = subprocess.Popen([mongod, "--dbpath", str(dbpath), "--port", str(port), "--bind_ip", "127.0.0.1",
-                                    "--nounixsocket", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                    "--nounixsocket", "--quiet", "--setParameter", "enableTestCommands=1"],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         uri = f"mongodb://127.0.0.1:{port}/?directConnection=true"
     client = MongoClient(uri, serverSelectionTimeoutMS=2000)
     deadline = time.monotonic() + 30
@@ -78,6 +80,18 @@ def fresh_collection(mongo_client):
     collection = db[f"t_{uuid4().hex[:12]}"]
     yield collection
     collection.drop()
+
+
+@pytest.fixture
+def always_time_out(mongo_client):
+    """Make every operation that carries maxTimeMS fail immediately, as if it ran past its time limit."""
+    from pymongo.errors import OperationFailure
+    try:
+        mongo_client.admin.command("configureFailPoint", "maxTimeAlwaysTimeOut", mode="alwaysOn")
+    except OperationFailure:
+        pytest.skip("Server does not allow test failpoints (needs enableTestCommands=1)")
+    yield
+    mongo_client.admin.command("configureFailPoint", "maxTimeAlwaysTimeOut", mode="off")
 
 
 @pytest.fixture(scope="session")
